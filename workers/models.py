@@ -29,7 +29,14 @@ class Worker(models.Model):
         related_name="workers",
         help_text="The building (work site) this position belongs to.",
     )
-    position_number = models.CharField("Position #", max_length=10)
+    position_number = models.CharField(
+        "Position slot",
+        max_length=10,
+        help_text=(
+            'Slot number at this building (original spreadsheet "POS #" column). '
+            'Examples: "1", "2". Team leads use is_lead (suffix -L in the old sheet).'
+        ),
+    )
     is_lead = models.BooleanField(
         "Lead",
         default=False,

@@ -35,21 +35,29 @@ python -m venv .venv
 .\.venv\Scripts\python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000/admin/
+Open http://127.0.0.1:8000/
 
 ### Demo accounts
 
-| Username | Password | Role |
-|----------|----------|------|
-| `director` | `demo1234` | Director |
-| `manager` | `demo1234` | Manager |
-| `supervisor_north` | `demo1234` | Supervisor (North Hall) |
-| `supervisor_south` | `demo1234` | Supervisor (South Hall) |
+| Username | Password | Role | After login |
+|----------|----------|------|-------------|
+| `director` | `demo1234` | Director | Admin (full access) |
+| `manager` | `demo1234` | Manager | Admin (team + budgets) |
+| `supervisor_north` | `demo1234` | Supervisor | Admin (North Hall only) |
+| `supervisor_south` | `demo1234` | Supervisor | Admin (South Hall only) |
+
+Everyone uses the same **Unfold Admin** UI at `/admin/`. What you see is filtered by role.
+
+`seed_demo_data` only inserts sample rows into the database (users, buildings, workers). Business rules live in `workers/services.py`, `config/permissions.py`, and Admin.
+
+## Worker fields
+
+- **POS #** (`position_number`) — position slot at that building, from the original spreadsheet "POS #" column (e.g. `1`, `2`). **Lead** (`is_lead`) marks team-lead slots (old sheet suffix `-L`).
 
 ## Development phases
 
-1. **Models + Admin** (current) — role-filtered querysets in Admin
-2. Supervisor daily pages — HTMX forms
+1. **Models + Admin** — role-filtered querysets in Unfold Admin
+2. **Supervisor daily work** — same Admin (no separate UI; keeps one visual style)
 3. Budget dashboard
 4. PDF export (WeasyPrint)
 5. Audit log + permission hardening

@@ -7,6 +7,12 @@ from workers.models import Worker, WorkerStatus
 
 
 class Command(BaseCommand):
+    """Insert sample buildings, users, and workers for local development only.
+
+    This is NOT application logic — it just pre-fills the database so you can
+    log in and click around without entering everything by hand.
+    """
+
     help = "Create demo users, buildings, and sample workers for local development."
 
     def handle(self, *args, **options):

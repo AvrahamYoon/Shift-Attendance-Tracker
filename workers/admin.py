@@ -47,7 +47,7 @@ class WorkerModelAdmin(WorkerAdmin):
         "name",
         "i_number",
         "building",
-        "position_number",
+        "position_slot_display",
         "is_lead",
         "shift",
         "term_status",
@@ -57,6 +57,11 @@ class WorkerModelAdmin(WorkerAdmin):
     list_filter = ("building", "status", "term_status", "is_lead")
     search_fields = ("name", "i_number", "phone")
     inlines = [AttendanceRecordInline, NoteInline, MonthlyScoreInline]
+
+    @admin.display(description="POS #", ordering="position_number")
+    def position_slot_display(self, obj):
+        lead = "-L" if obj.is_lead else ""
+        return f"{obj.position_number}{lead}"
 
     @admin.display(description="Current supervisor")
     def current_supervisor_display(self, obj):

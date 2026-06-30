@@ -129,7 +129,7 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 
 AUTH_USER_MODEL = "accounts.User"
 
-LOGIN_URL = "admin:login"
-LOGIN_REDIRECT_URL = "admin:index"
+LOGIN_URL = "accounts:login"
+LOGIN_REDIRECT_URL = "accounts:post_login"
 
 from config.unfold import UNFOLD  # noqa: E402
