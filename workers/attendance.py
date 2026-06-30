@@ -2,6 +2,7 @@
 
 from django.core.exceptions import ValidationError
 from django.db.models import Count
+from django.utils import timezone
 
 from workers.models import AttendanceCategory, AttendanceRecord, Term
 
@@ -16,6 +17,8 @@ DISPLAY_CATEGORIES = (
     AttendanceCategory.TARDY,
     AttendanceCategory.NO_SHOW,
 )
+
+ABSENCE_CATEGORY = AttendanceCategory.ABSENCE
 
 
 def summary_overall_status(summary):
@@ -41,11 +44,27 @@ def resolve_term_for_date(record_date):
     return term
 
 
+def absence_days_for_term(worker, term):
+    """Distinct absence dates for one worker in one term."""
+    return (
+        AttendanceRecord.objects.filter(
+            worker=worker,
+            term=term,
+            category=ABSENCE_CATEGORY,
+        )
+        .values("record_date")
+        .distinct()
+        .count()
+    )
+
+
 def attendance_counts_for_term(worker, term):
     """Return {category: count} for one worker in one term."""
     counts = {category.value: 0 for category in AttendanceCategory}
+    base_qs = AttendanceRecord.objects.filter(worker=worker, term=term)
+    counts[ABSENCE_CATEGORY.value] = absence_days_for_term(worker, term)
     rows = (
-        AttendanceRecord.objects.filter(worker=worker, term=term)
+        base_qs.exclude(category=ABSENCE_CATEGORY)
         .values("category")
         .annotate(total=Count("id"))
     )
@@ -71,8 +90,33 @@ def attendance_summary_for_term(worker, term):
     return summary
 
 
+def absence_day_number(record):
+    """1-based index of this absence date within worker + term."""
+    if (
+        not record.worker_id
+        or not record.term_id
+        or record.category != ABSENCE_CATEGORY
+        or not record.record_date
+    ):
+        return None
+    dates = sorted(
+        AttendanceRecord.objects.filter(
+            worker_id=record.worker_id,
+            term_id=record.term_id,
+            category=ABSENCE_CATEGORY,
+        )
+        .values_list("record_date", flat=True)
+        .distinct()
+    )
+    if record.record_date in dates:
+        return dates.index(record.record_date) + 1
+    return len(dates) + 1
+
+
 def occurrence_number(record):
     """1-based index of this record within worker + term + category."""
+    if record.category == ABSENCE_CATEGORY:
+        return absence_day_number(record)
     if not record.worker_id or not record.term_id or not record.category:
         return None
     ordering = AttendanceRecord.objects.filter(
@@ -89,9 +133,29 @@ def occurrence_number(record):
 
 def occurrence_label(record):
     number = occurrence_number(record)
+    if record.category == ABSENCE_CATEGORY and record.record_date:
+        if number is None:
+            return f"{record.get_category_display()} ({record.record_date})"
+        return f"Absence day {number} ({record.record_date})"
     if number is None:
         return record.get_category_display()
     return f"{record.get_category_display()} #{number}"
+
+
+def projected_count_after_add(worker, term, category, record_date=None):
+    """Count after adding one record (absence uses distinct days)."""
+    record_date = record_date or timezone.localdate()
+    if category == ABSENCE_CATEGORY:
+        existing_dates = set(
+            AttendanceRecord.objects.filter(
+                worker=worker,
+                term=term,
+                category=ABSENCE_CATEGORY,
+            ).values_list("record_date", flat=True)
+        )
+        existing_dates.add(record_date)
+        return len(existing_dates)
+    return attendance_counts_for_term(worker, term)[category] + 1
 
 
 def limit_warnings_for_record(record):
@@ -104,12 +168,16 @@ def limit_warnings_for_record(record):
         return []
     n = occurrence_number(record)
     label = info["label"]
+    if record.category == ABSENCE_CATEGORY:
+        detail = f"absence day {n} ({record.record_date})"
+    else:
+        detail = f"#{n}"
     if info["exceeded"]:
         return [
             (
                 "error",
                 f"{record.worker.name} now has {info['count']} {label.lower()} "
-                f"this term (limit {info['limit']}). This is #{n} — OVER LIMIT.",
+                f"this term (limit {info['limit']}). This is {detail} — OVER LIMIT.",
             )
         ]
     if info["at_limit"]:
@@ -117,17 +185,19 @@ def limit_warnings_for_record(record):
             (
                 "warning",
                 f"{record.worker.name} has reached the term limit for "
-                f"{label.lower()} ({info['limit']}/{info['limit']}). This is #{n}.",
+                f"{label.lower()} ({info['limit']}/{info['limit']}). This is {detail}.",
             )
         ]
     return []
 
 
-def limit_warnings_if_added(worker, term, category):
+def limit_warnings_if_added(worker, term, category, record_date=None):
     """Warnings if one more record of this category were added."""
     summary = attendance_summary_for_term(worker, term)
     info = summary[category]
-    new_count = info["count"] + 1
+    new_count = projected_count_after_add(worker, term, category, record_date)
+    if new_count == info["count"]:
+        return []
     limit = info["limit"]
     label = info["label"]
     if new_count > limit:

@@ -1,4 +1,5 @@
 from django.contrib import admin, messages
+from django.core.exceptions import PermissionDenied
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils import timezone
@@ -7,12 +8,15 @@ from unfold.admin import ModelAdmin, TabularInline
 from accounts.models import Role
 from config.admin_mixins import (
     AuditStampAdminMixin,
+    FULL_ACCESS,
     InlineAuditStampMixin,
     NoteAdmin,
     RoleFilteredAdminMixin,
+    VIEW_ONLY,
     WorkerAdmin,
     WorkerRelatedAdmin,
 )
+from config.permissions import filter_workers
 from workers.attendance import (
     DISPLAY_CATEGORIES,
     attendance_summary_for_term,
@@ -22,7 +26,7 @@ from workers.attendance import (
     resolve_term_for_date,
     summary_overall_status,
 )
-from workers.forms import AttendanceRecordForm
+from workers.forms import AbsenceRecordForm, AttendanceRecordForm
 from workers.models import AttendanceCategory, AttendanceRecord, MonthlyScore, Note, Term, Worker
 
 INLINE_AUDIT_FIELDS = {
@@ -116,19 +120,51 @@ class TermAdmin(RoleFilteredAdminMixin, ModelAdmin):
         return "—"
 
 
-class AttendanceRecordInline(InlineAuditStampMixin, TabularInline):
+class AbsenceRecordInline(InlineAuditStampMixin, TabularInline):
+    model = AttendanceRecord
+    form = AbsenceRecordForm
+    audit_field = "recorded_by"
+    verbose_name = "Absence day"
+    verbose_name_plural = "Absence days"
+    extra = 1
+    can_delete = True
+    fields = ("record_date", "occurrence_display", "created_at")
+    readonly_fields = ("occurrence_display", "created_at")
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(category=AttendanceCategory.ABSENCE)
+
+    @admin.display(description="Day")
+    def occurrence_display(self, obj):
+        if not obj.pk:
+            return "—"
+        return occurrence_label(obj)
+
+
+class TardyNoShowRecordInline(InlineAuditStampMixin, TabularInline):
     model = AttendanceRecord
     form = AttendanceRecordForm
     audit_field = "recorded_by"
-    extra = 1
+    verbose_name = "Tardy / No show"
+    verbose_name_plural = "Tardy / No show"
+    extra = 0
     fields = ("category", "record_date", "occurrence_display", "created_at")
     readonly_fields = ("occurrence_display", "created_at")
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.exclude(category=AttendanceCategory.ABSENCE)
 
     @admin.display(description="#")
     def occurrence_display(self, obj):
         if not obj.pk:
             return "—"
         return occurrence_label(obj)
+
+
+class AttendanceRecordInline(TardyNoShowRecordInline):
+    """Backward-compatible alias."""
 
 
 class NoteInline(InlineAuditStampMixin, TabularInline):
@@ -167,7 +203,7 @@ class WorkerModelAdmin(WorkerAdmin):
     list_filter = ("building", "status", "term_status")
     search_fields = ("name", "i_number", "phone")
     readonly_fields = ("term_attendance_summary",)
-    inlines = [AttendanceRecordInline, NoteInline, MonthlyScoreInline]
+    inlines = [AbsenceRecordInline, TardyNoShowRecordInline, NoteInline, MonthlyScoreInline]
     fieldsets = (
         (
             None,
@@ -189,7 +225,8 @@ class WorkerModelAdmin(WorkerAdmin):
                 "fields": ("term_attendance_summary",),
                 "description": (
                     "Automatic counts for the current BYUI semester. Limits: "
-                    "4 absences, 4 tardies, 1 no show."
+                    "4 absence days, 4 tardies, 1 no show. "
+                    "Absences count by day (one per date)."
                 ),
             },
         ),
@@ -358,8 +395,26 @@ class WorkerModelAdmin(WorkerAdmin):
 
 @admin.register(AttendanceRecord)
 class AttendanceRecordAdmin(AuditStampAdminMixin, WorkerRelatedAdmin):
+    role_permissions = {
+        Role.DIRECTOR: FULL_ACCESS,
+        Role.MANAGER: VIEW_ONLY,
+        Role.SUPERVISOR: ("view", "add", "change", "delete"),
+    }
     form = AttendanceRecordForm
     audit_fields = ("recorded_by",)
+    fields = ("worker", "category", "record_date")
+    add_fieldsets = (
+        (
+            None,
+            {
+                "fields": ("worker", "category", "record_date"),
+                "description": (
+                    "Select the student employee first. Absences count by day "
+                    "(one record per date)."
+                ),
+            },
+        ),
+    )
     list_display = (
         "worker",
         "term",
@@ -387,7 +442,35 @@ class AttendanceRecordAdmin(AuditStampAdminMixin, WorkerRelatedAdmin):
         summary = attendance_summary_for_term(obj.worker, obj.term)
         return _attendance_limit_cell_html(summary, obj.category)
 
+    def get_form(self, request, obj=None, **kwargs):
+        user = request.user
+
+        class RequestAttendanceRecordForm(AttendanceRecordForm):
+            def __init__(self, *args, **kw):
+                super().__init__(*args, user=user, **kw)
+
+        kwargs["form"] = RequestAttendanceRecordForm
+        return super().get_form(request, obj, **kwargs)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "worker":
+            kwargs["queryset"] = filter_workers(
+                Worker.objects.select_related("building").order_by("name"),
+                request.user,
+            )
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        if "category" in request.GET:
+            initial["category"] = request.GET["category"]
+        return initial
+
     def save_model(self, request, obj, form, change):
+        if not filter_workers(
+            Worker.objects.filter(pk=obj.worker_id), request.user
+        ).exists():
+            raise PermissionDenied("You do not have permission to record attendance for this worker.")
         if not change:
             obj.recorded_by = request.user
         if not change and obj.worker_id and obj.category:
@@ -398,7 +481,7 @@ class AttendanceRecordAdmin(AuditStampAdminMixin, WorkerRelatedAdmin):
                 term = None
             if term:
                 for level, text in limit_warnings_if_added(
-                    obj.worker, term, obj.category
+                    obj.worker, term, obj.category, record_date
                 ):
                     _dispatch_limit_message(request, level, text)
         super().save_model(request, obj, form, change)

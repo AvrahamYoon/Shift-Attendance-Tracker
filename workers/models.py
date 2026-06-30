@@ -124,6 +124,34 @@ class AttendanceRecord(models.Model):
 
     class Meta:
         ordering = ["-record_date", "-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["worker", "term", "record_date"],
+                condition=models.Q(category=AttendanceCategory.ABSENCE),
+                name="unique_absence_day_per_worker_term",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if (
+            self.category == AttendanceCategory.ABSENCE
+            and self.worker_id
+            and self.term_id
+            and self.record_date
+        ):
+            duplicate = AttendanceRecord.objects.filter(
+                worker_id=self.worker_id,
+                term_id=self.term_id,
+                category=AttendanceCategory.ABSENCE,
+                record_date=self.record_date,
+            )
+            if self.pk:
+                duplicate = duplicate.exclude(pk=self.pk)
+            if duplicate.exists():
+                raise ValidationError(
+                    {"record_date": "This worker already has an absence on this date."}
+                )
 
     def __str__(self):
         from workers.attendance import occurrence_label
