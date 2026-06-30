@@ -61,11 +61,19 @@ Supervisors only pick **category** (Absence / Tardy / No Show) and **date**. The
   - **4** tardies
   - **1** no show
 
-Directors add terms under **Workers → Terms** (e.g. `2026 Spring` with start/end dates).
+Directors add terms via **Workers → Terms**, or run:
+
+```powershell
+.\.venv\Scripts\python manage.py sync_byui_terms
+```
+
+Semester dates follow the [BYU-Idaho academic calendar](https://www.byui.edu/academic-calendar/) (full semester). Includes **Fall**, **Winter**, and **Spring** (BYUI Spring starts in April). Example: **Winter 2026** = Jan 7 – Apr 9, 2026; **Spring 2026** = Apr 20 – Jul 22, 2026.
 
 ## Worker fields
 
-- **POS #** (`position_number`) — position slot at that building, from the original spreadsheet "POS #" column (e.g. `1`, `2`). **Lead** (`is_lead`) marks team-lead slots (old sheet suffix `-L`).
+- **Building** — work site / department (not position slots)
+- **Shift** — work hours, e.g. `4:30-7:30 AM`
+- **Term status** — Staying / Leaving / New (employment intent, not the BYUI academic term)
 
 ## Development phases
 

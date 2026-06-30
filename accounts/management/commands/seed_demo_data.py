@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand
 from accounts.models import Role, User
 from buildings.models import Building
 from budget.models import Budget
+from workers.byui_terms import sync_byui_terms
 from workers.models import Term, Worker, WorkerStatus
 
 
@@ -27,13 +28,7 @@ class Command(BaseCommand):
             defaults={"address": "200 Campus Dr"},
         )
 
-        Term.objects.get_or_create(
-            name="2026 Spring",
-            defaults={
-                "start_date": date(2026, 1, 10),
-                "end_date": date(2026, 5, 20),
-            },
-        )
+        sync_byui_terms(Term)
 
         director, created = User.objects.get_or_create(
             username="director",
@@ -100,22 +95,18 @@ class Command(BaseCommand):
                 "name": "Alex Student",
                 "i_number": "I12345678",
                 "building": building_a,
-                "position_number": "1",
-                "is_lead": True,
                 "shift": "4:30-7:30 AM",
             },
             {
                 "name": "Blake Student",
                 "i_number": "I23456789",
                 "building": building_a,
-                "position_number": "2",
                 "shift": "4:30-7:30 AM",
             },
             {
                 "name": "Casey Student",
                 "i_number": "I34567890",
                 "building": building_b,
-                "position_number": "1",
                 "shift": "7:30-10:30 AM",
             },
         ]

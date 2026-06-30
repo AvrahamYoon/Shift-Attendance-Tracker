@@ -60,11 +60,13 @@ def save_worker_for_user(user, worker, *, is_new=False):
 
 
 @transaction.atomic
-def create_attendance_record(user, worker, category, record_date):
+def create_attendance_record(user, worker, category, record_date=None):
+    from django.utils import timezone
+
     get_worker_for_user(user, worker.pk)
+    if not record_date:
+        record_date = timezone.localdate()
     term = resolve_term_for_date(record_date)
-    for warning in limit_warnings_if_added(worker, term, category):
-        pass  # caller shows warnings via return value
     record = AttendanceRecord(
         worker=worker,
         term=term,

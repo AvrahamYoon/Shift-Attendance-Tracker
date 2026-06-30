@@ -1,5 +1,6 @@
 from django.contrib import admin, messages
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.utils import timezone
 from unfold.admin import ModelAdmin, TabularInline
 
@@ -19,8 +20,8 @@ from workers.attendance import (
     occurrence_label,
     resolve_term_for_date,
 )
+from workers.forms import AttendanceRecordForm
 from workers.models import AttendanceCategory, AttendanceRecord, MonthlyScore, Note, Term, Worker
-
 
 INLINE_AUDIT_FIELDS = {
     AttendanceRecord: "recorded_by",
@@ -53,8 +54,9 @@ class TermAdmin(RoleFilteredAdminMixin, ModelAdmin):
 
 class AttendanceRecordInline(InlineAuditStampMixin, TabularInline):
     model = AttendanceRecord
+    form = AttendanceRecordForm
     audit_field = "recorded_by"
-    extra = 0
+    extra = 1
     fields = ("category", "record_date", "occurrence_display", "created_at")
     readonly_fields = ("occurrence_display", "created_at")
 
@@ -87,12 +89,12 @@ class WorkerModelAdmin(WorkerAdmin):
         "name",
         "i_number",
         "building",
-        "position_slot_display",
+        "shift",
         "term_attendance_short",
         "status",
         "current_supervisor_display",
     )
-    list_filter = ("building", "status", "term_status", "is_lead")
+    list_filter = ("building", "status", "term_status")
     search_fields = ("name", "i_number", "phone")
     readonly_fields = ("term_attendance_summary",)
     inlines = [AttendanceRecordInline, NoteInline, MonthlyScoreInline]
@@ -105,8 +107,6 @@ class WorkerModelAdmin(WorkerAdmin):
                     "i_number",
                     "phone",
                     "building",
-                    "position_number",
-                    "is_lead",
                     "shift",
                     "term_status",
                     "status",
@@ -118,26 +118,25 @@ class WorkerModelAdmin(WorkerAdmin):
             {
                 "fields": ("term_attendance_summary",),
                 "description": (
-                    "Counts are automatic per semester. Limits: "
+                    "Automatic counts for the current BYUI semester. Limits: "
                     "4 absences, 4 tardies, 1 no show."
                 ),
             },
         ),
     )
 
-    @admin.display(description="POS #", ordering="position_number")
-    def position_slot_display(self, obj):
-        lead = "-L" if obj.is_lead else ""
-        return f"{obj.position_number}{lead}"
-
     @admin.display(description="Term attendance")
     def term_attendance_short(self, obj):
         term = Term.current()
         if not term:
-            return "—"
+            return "no term"
         summary = attendance_summary_for_term(obj, term)
         parts = []
-        for key in (AttendanceCategory.ABSENCE, AttendanceCategory.TARDY, AttendanceCategory.NO_SHOW):
+        for key in (
+            AttendanceCategory.ABSENCE,
+            AttendanceCategory.TARDY,
+            AttendanceCategory.NO_SHOW,
+        ):
             info = summary[key.value]
             flag = "!" if info["exceeded"] else ""
             parts.append(f"{info['label'][0]}:{info['count']}/{info['limit']}{flag}")
@@ -150,11 +149,16 @@ class WorkerModelAdmin(WorkerAdmin):
         term = Term.current()
         if not term:
             return format_html(
-                '<p class="text-red-600">No active term for today. Add a term in Admin.</p>'
+                "<p>No BYUI semester covers today. "
+                "Run <code>python manage.py sync_byui_terms</code>.</p>"
             )
         summary = attendance_summary_for_term(obj, term)
         rows = []
-        for key in (AttendanceCategory.ABSENCE, AttendanceCategory.TARDY, AttendanceCategory.NO_SHOW):
+        for key in (
+            AttendanceCategory.ABSENCE,
+            AttendanceCategory.TARDY,
+            AttendanceCategory.NO_SHOW,
+        ):
             info = summary[key.value]
             style = "color: #b45309; font-weight: 600;" if info["exceeded"] else ""
             rows.append(
@@ -162,9 +166,11 @@ class WorkerModelAdmin(WorkerAdmin):
                 f"<td>{info['count']} / {info['limit']}</td></tr>"
             )
         return format_html(
-            "<p><strong>{}</strong></p><table>{}</table>",
+            "<p><strong>{}</strong> ({} – {})</p><table>{}</table>",
             term.name,
-            format_html("".join(rows)),
+            term.start_date,
+            term.end_date,
+            mark_safe("".join(rows)),
         )
 
     @admin.display(description="Current supervisor")
@@ -222,6 +228,7 @@ class WorkerModelAdmin(WorkerAdmin):
 
 @admin.register(AttendanceRecord)
 class AttendanceRecordAdmin(AuditStampAdminMixin, WorkerRelatedAdmin):
+    form = AttendanceRecordForm
     audit_fields = ("recorded_by",)
     list_display = (
         "worker",
@@ -245,13 +252,17 @@ class AttendanceRecordAdmin(AuditStampAdminMixin, WorkerRelatedAdmin):
     def save_model(self, request, obj, form, change):
         if not change:
             obj.recorded_by = request.user
-        if not obj.term_id and obj.record_date:
-            obj.term = resolve_term_for_date(obj.record_date)
-        if not change and obj.worker_id and obj.term_id and obj.category:
-            for warning in limit_warnings_if_added(
-                obj.worker, obj.term, obj.category
-            ):
-                messages.warning(request, warning)
+        if not change and obj.worker_id and obj.category:
+            record_date = obj.record_date or timezone.localdate()
+            try:
+                term = obj.term or resolve_term_for_date(record_date)
+            except Exception:
+                term = None
+            if term:
+                for warning in limit_warnings_if_added(
+                    obj.worker, term, obj.category
+                ):
+                    messages.warning(request, warning)
         super().save_model(request, obj, form, change)
         if not change:
             for warning in limit_warnings_for_record(obj):

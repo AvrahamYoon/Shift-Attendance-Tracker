@@ -18,8 +18,8 @@ def resolve_term_for_date(record_date):
         raise ValidationError(
             {
                 "record_date": (
-                    "No semester term covers this date. "
-                    "Ask a director to add the term in Admin first."
+                    "No BYUI semester covers this date. "
+                    "Run: python manage.py sync_byui_terms"
                 )
             }
         )

@@ -18,7 +18,10 @@ class TermStatus(models.TextChoices):
 class Term(models.Model):
     """Academic semester used for attendance limits and totals."""
 
-    name = models.CharField(max_length=100, help_text='e.g. "2026 Spring"')
+    name = models.CharField(
+        max_length=100,
+        help_text='BYUI full semester name, e.g. "Spring 2026".',
+    )
     start_date = models.DateField()
     end_date = models.DateField()
 
@@ -59,20 +62,7 @@ class Worker(models.Model):
         "buildings.Building",
         on_delete=models.PROTECT,
         related_name="workers",
-        help_text="The building (work site) this position belongs to.",
-    )
-    position_number = models.CharField(
-        "Position slot",
-        max_length=10,
-        help_text=(
-            'Slot number at this building (original spreadsheet "POS #" column). '
-            'Examples: "1", "2". Team leads use is_lead (suffix -L in the old sheet).'
-        ),
-    )
-    is_lead = models.BooleanField(
-        "Lead",
-        default=False,
-        help_text="Team lead position (suffix -L in original spreadsheet).",
+        help_text="Work site / department this student employee is assigned to.",
     )
     shift = models.CharField(
         max_length=50,
@@ -91,11 +81,10 @@ class Worker(models.Model):
     )
 
     class Meta:
-        ordering = ["building", "position_number", "name"]
+        ordering = ["building", "name"]
 
     def __str__(self):
-        lead = "-L" if self.is_lead else ""
-        return f"{self.name} ({self.i_number}) — POS {self.position_number}{lead}"
+        return f"{self.name} ({self.i_number})"
 
     @property
     def current_supervisor(self):
@@ -122,7 +111,10 @@ class AttendanceRecord(models.Model):
         related_name="attendance_records",
     )
     category = models.CharField(max_length=20, choices=AttendanceCategory.choices)
-    record_date = models.DateField()
+    record_date = models.DateField(
+        blank=True,
+        help_text="Leave blank when recording — defaults to today (Mountain Time).",
+    )
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -139,7 +131,9 @@ class AttendanceRecord(models.Model):
         return f"{self.worker} — {occurrence_label(self)} ({self.record_date})"
 
     def save(self, *args, **kwargs):
-        if not self.term_id and self.record_date:
+        if not self.record_date:
+            self.record_date = timezone.localdate()
+        if not self.term_id:
             from workers.attendance import resolve_term_for_date
 
             self.term = resolve_term_for_date(self.record_date)
