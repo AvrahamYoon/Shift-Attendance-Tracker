@@ -31,6 +31,10 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "unfold",
+    "unfold.contrib.filters",
+    "unfold.contrib.forms",
+    "unfold.contrib.inlines",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -127,3 +131,5 @@ AUTH_USER_MODEL = "accounts.User"
 
 LOGIN_URL = "admin:login"
 LOGIN_REDIRECT_URL = "admin:index"
+
+from config.unfold import UNFOLD  # noqa: E402

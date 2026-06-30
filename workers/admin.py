@@ -1,4 +1,5 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin, TabularInline
 
 from config.admin_mixins import (
     AuditStampAdminMixin,
@@ -16,7 +17,7 @@ INLINE_AUDIT_FIELDS = {
 }
 
 
-class AttendanceRecordInline(InlineAuditStampMixin, admin.TabularInline):
+class AttendanceRecordInline(InlineAuditStampMixin, TabularInline):
     model = AttendanceRecord
     audit_field = "recorded_by"
     extra = 0
@@ -24,7 +25,7 @@ class AttendanceRecordInline(InlineAuditStampMixin, admin.TabularInline):
     readonly_fields = ("created_at",)
 
 
-class NoteInline(InlineAuditStampMixin, admin.TabularInline):
+class NoteInline(InlineAuditStampMixin, TabularInline):
     model = Note
     audit_field = "author"
     extra = 0
@@ -33,7 +34,7 @@ class NoteInline(InlineAuditStampMixin, admin.TabularInline):
     readonly_fields = ("created_at",)
 
 
-class MonthlyScoreInline(InlineAuditStampMixin, admin.TabularInline):
+class MonthlyScoreInline(InlineAuditStampMixin, TabularInline):
     model = MonthlyScore
     audit_field = "supervisor"
     extra = 0

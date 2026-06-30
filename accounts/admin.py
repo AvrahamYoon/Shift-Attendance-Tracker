@@ -1,8 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from unfold.admin import ModelAdmin
 
 from accounts.models import Role, User
-from config.admin_mixins import RoleFilteredAdminMixin
 from config.permissions import filter_supervisors
 
 # Fields that only a director may change on any user account.
@@ -38,7 +38,7 @@ READ_ONLY_USER_FIELDSETS = (
 
 
 @admin.register(User)
-class UserAdmin(BaseUserAdmin, RoleFilteredAdminMixin):
+class UserAdmin(BaseUserAdmin, ModelAdmin):
     list_display = ("username", "email", "role", "building", "manager", "is_staff")
     list_filter = ("role", "is_staff", "building")
     search_fields = ("username", "first_name", "last_name", "email")

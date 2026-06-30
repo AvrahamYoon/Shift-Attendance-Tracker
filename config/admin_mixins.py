@@ -1,4 +1,4 @@
-from django.contrib import admin
+from unfold.admin import ModelAdmin, TabularInline
 
 from accounts.models import Role
 from config.permissions import (
@@ -109,15 +109,17 @@ class RoleFilteredAdminMixin:
         return staff_with_role(request) and self._role_allows(request, "delete")
 
 
-class WorkerRelatedAdmin(RoleFilteredAdminMixin, admin.ModelAdmin):
+class WorkerRelatedAdmin(RoleFilteredAdminMixin, ModelAdmin):
     permission_filter = filter_by_worker_relation
+    list_filter_submit = True
 
 
-class WorkerAdmin(RoleFilteredAdminMixin, admin.ModelAdmin):
+class WorkerAdmin(RoleFilteredAdminMixin, ModelAdmin):
     permission_filter = filter_workers
+    list_filter_submit = True
 
 
-class BuildingAdmin(RoleFilteredAdminMixin, admin.ModelAdmin):
+class BuildingAdmin(RoleFilteredAdminMixin, ModelAdmin):
     permission_filter = filter_buildings
     role_permissions = {
         Role.DIRECTOR: FULL_ACCESS,
@@ -126,11 +128,12 @@ class BuildingAdmin(RoleFilteredAdminMixin, admin.ModelAdmin):
     }
 
 
-class NoteAdmin(RoleFilteredAdminMixin, admin.ModelAdmin):
+class NoteAdmin(RoleFilteredAdminMixin, ModelAdmin):
     permission_filter = filter_notes
+    list_filter_submit = True
 
 
-class BudgetAdmin(RoleFilteredAdminMixin, admin.ModelAdmin):
+class BudgetAdmin(RoleFilteredAdminMixin, ModelAdmin):
     permission_filter = filter_budgets
     role_permissions = {
         Role.DIRECTOR: FULL_ACCESS,

@@ -16,11 +16,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from django.views.generic import RedirectView
 
-import config.admin  # noqa: F401 — customize admin site headers
+from config.views import HomeView
 
 urlpatterns = [
-    path("", RedirectView.as_view(pattern_name="admin:index", permanent=False), name="home"),
+    path("", HomeView.as_view(), name="home"),
     path("admin/", admin.site.urls),
 ]

@@ -1,0 +1,9 @@
+/* Small tweaks on top of django-unfold */
+
+#changelist-filter {
+    top: 1rem;
+}
+
+.inline-group .tabular {
+    overflow-x: auto;
+}
