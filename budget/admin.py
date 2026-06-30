@@ -32,12 +32,3 @@ class BudgetModelAdmin(BudgetAdmin):
         if not change:
             obj.set_by = request.user
         super().save_model(request, obj, form, change)
-
-    def has_add_permission(self, request):
-        return request.user.role in ("director", "manager") and request.user.is_staff
-
-    def has_change_permission(self, request, obj=None):
-        return request.user.role in ("director", "manager") and request.user.is_staff
-
-    def has_delete_permission(self, request, obj=None):
-        return request.user.role == "director" and request.user.is_staff

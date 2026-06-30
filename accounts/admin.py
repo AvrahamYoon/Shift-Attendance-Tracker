@@ -35,6 +35,9 @@ class UserAdmin(BaseUserAdmin, RoleFilteredAdminMixin):
             )
         return qs
 
+    def has_module_permission(self, request):
+        return request.user.is_staff and request.user.role in Role.values
+
     def has_view_permission(self, request, obj=None):
         if obj is None:
             return request.user.is_staff
