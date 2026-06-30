@@ -3,16 +3,11 @@ from django.db import models
 
 
 class Budget(models.Model):
-    supervisor = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="budgets",
-        limit_choices_to={"role": "supervisor"},
-    )
     building = models.ForeignKey(
         "buildings.Building",
         on_delete=models.CASCADE,
         related_name="budgets",
+        help_text="Headcount quota for this building.",
     )
     period = models.CharField(
         max_length=7,
@@ -23,6 +18,7 @@ class Budget(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="budgets_set",
+        help_text="Manager who set this quota.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -31,16 +27,19 @@ class Budget(models.Model):
         ordering = ["-period", "building"]
         constraints = [
             models.UniqueConstraint(
-                fields=["supervisor", "building", "period"],
-                name="unique_supervisor_building_period_budget",
+                fields=["building", "period"],
+                name="unique_building_period_budget",
             ),
         ]
 
     def __str__(self):
-        return (
-            f"{self.building} / {self.supervisor} — "
-            f"{self.period}: {self.allocated_headcount}"
-        )
+        return f"{self.building} — {self.period}: {self.allocated_headcount}"
+
+    @property
+    def current_supervisor(self):
+        if not self.building_id:
+            return None
+        return self.building.current_supervisor
 
     @property
     def actual_headcount(self):

@@ -7,7 +7,7 @@ def filter_workers(qs, user):
     if user.role == "supervisor":
         return qs.filter(building=user.building)
     if user.role == "manager":
-        return qs.filter(supervisor__manager=user)
+        return qs.filter(building__supervisor_users__manager=user).distinct()
     return qs
 
 
@@ -17,7 +17,9 @@ def filter_by_worker_relation(qs, user, worker_path="worker"):
     if user.role == "supervisor":
         return qs.filter(**{f"{worker_path}__building": user.building})
     if user.role == "manager":
-        return qs.filter(**{f"{worker_path}__supervisor__manager": user})
+        return qs.filter(
+            **{f"{worker_path}__building__supervisor_users__manager": user}
+        ).distinct()
     return qs
 
 
@@ -29,7 +31,7 @@ def filter_buildings(qs, user):
             return qs.filter(pk=user.building_id)
         return qs.none()
     if user.role == "manager":
-        return qs.filter(workers__supervisor__manager=user).distinct()
+        return qs.filter(supervisor_users__manager=user).distinct()
     return qs
 
 
@@ -52,9 +54,7 @@ def filter_notes(qs, user):
     if user.role == "supervisor":
         return qs.filter(building=user.building)
     if user.role == "manager":
-        return qs.filter(
-            building__workers__supervisor__manager=user
-        ).distinct()
+        return qs.filter(building__supervisor_users__manager=user).distinct()
     return qs
 
 
@@ -62,7 +62,7 @@ def filter_budgets(qs, user):
     if not user.is_authenticated:
         return qs.none()
     if user.role == "supervisor":
-        return qs.filter(supervisor=user)
+        return qs.filter(building=user.building)
     if user.role == "manager":
-        return qs.filter(supervisor__manager=user)
+        return qs.filter(building__supervisor_users__manager=user).distinct()
     return qs

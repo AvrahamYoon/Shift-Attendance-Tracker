@@ -16,7 +16,7 @@ Internal Django tool for managing **student employee work attendance** (not acad
 | `accounts` | Custom `User` with `role`, `building`, `manager` |
 | `buildings` | Work locations / departments |
 | `workers` | Student employees, attendance, notes, monthly scores |
-| `budget` | Manager headcount budgets per supervisor/building/period |
+| `budget` | Manager headcount budgets per building/period |
 
 ## Roles
 

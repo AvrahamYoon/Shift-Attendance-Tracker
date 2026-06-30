@@ -10,14 +10,20 @@ class BudgetModelAdmin(AuditStampAdminMixin, BudgetAdmin):
     list_display = (
         "period",
         "building",
-        "supervisor",
+        "current_supervisor_display",
         "allocated_headcount",
         "actual_headcount_display",
         "variance_display",
         "set_by",
     )
     list_filter = ("period", "building")
-    search_fields = ("supervisor__username", "building__name")
+    search_fields = ("building__name",)
+    autocomplete_fields = ("building",)
+
+    @admin.display(description="Current supervisor")
+    def current_supervisor_display(self, obj):
+        supervisor = obj.current_supervisor
+        return supervisor.get_full_name() or supervisor.username if supervisor else "—"
 
     @admin.display(description="Actual")
     def actual_headcount_display(self, obj):

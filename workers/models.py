@@ -27,12 +27,7 @@ class Worker(models.Model):
         "buildings.Building",
         on_delete=models.PROTECT,
         related_name="workers",
-    )
-    supervisor = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name="workers",
-        limit_choices_to={"role": "supervisor"},
+        help_text="The building (work site) this position belongs to.",
     )
     position_number = models.CharField("Position #", max_length=10)
     is_lead = models.BooleanField(
@@ -63,17 +58,11 @@ class Worker(models.Model):
         lead = "-L" if self.is_lead else ""
         return f"{self.name} ({self.i_number}) — POS {self.position_number}{lead}"
 
-    def clean(self):
-        super().clean()
-        if self.supervisor_id and self.building_id:
-            if self.supervisor.building_id != self.building_id:
-                raise ValidationError(
-                    {
-                        "supervisor": (
-                            "Supervisor must belong to the same building as the worker."
-                        )
-                    }
-                )
+    @property
+    def current_supervisor(self):
+        if not self.building_id:
+            return None
+        return self.building.current_supervisor
 
 
 class AttendanceCategory(models.TextChoices):

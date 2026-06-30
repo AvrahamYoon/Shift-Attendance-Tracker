@@ -16,3 +16,9 @@ class Building(models.Model):
         from workers.models import WorkerStatus
 
         return self.workers.filter(status=WorkerStatus.ACTIVE).count()
+
+    @property
+    def current_supervisor(self):
+        from accounts.models import Role
+
+        return self.supervisor_users.filter(role=Role.SUPERVISOR).first()

@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 
 from accounts.models import Role, User
 from buildings.models import Building
+from budget.models import Budget
 from workers.models import Worker, WorkerStatus
 
 
@@ -83,7 +84,6 @@ class Command(BaseCommand):
                 "name": "Alex Student",
                 "i_number": "I12345678",
                 "building": building_a,
-                "supervisor": sup_north,
                 "position_number": "1",
                 "is_lead": True,
                 "shift": "4:30-7:30 AM",
@@ -92,7 +92,6 @@ class Command(BaseCommand):
                 "name": "Blake Student",
                 "i_number": "I23456789",
                 "building": building_a,
-                "supervisor": sup_north,
                 "position_number": "2",
                 "shift": "4:30-7:30 AM",
             },
@@ -100,7 +99,6 @@ class Command(BaseCommand):
                 "name": "Casey Student",
                 "i_number": "I34567890",
                 "building": building_b,
-                "supervisor": sup_south,
                 "position_number": "1",
                 "shift": "7:30-10:30 AM",
             },
@@ -109,6 +107,16 @@ class Command(BaseCommand):
             Worker.objects.get_or_create(
                 i_number=data["i_number"],
                 defaults={**data, "status": WorkerStatus.ACTIVE},
+            )
+
+        for building, headcount in ((building_a, 3), (building_b, 2)):
+            Budget.objects.get_or_create(
+                building=building,
+                period="2026-07",
+                defaults={
+                    "allocated_headcount": headcount,
+                    "set_by": manager,
+                },
             )
 
         self.stdout.write(self.style.SUCCESS("Demo data ready."))

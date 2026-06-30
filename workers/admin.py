@@ -52,15 +52,19 @@ class WorkerModelAdmin(WorkerAdmin):
         "shift",
         "term_status",
         "status",
-        "supervisor",
+        "current_supervisor_display",
     )
     list_filter = ("building", "status", "term_status", "is_lead")
     search_fields = ("name", "i_number", "phone")
     inlines = [AttendanceRecordInline, NoteInline, MonthlyScoreInline]
 
+    @admin.display(description="Current supervisor")
+    def current_supervisor_display(self, obj):
+        supervisor = obj.current_supervisor
+        return supervisor.get_full_name() or supervisor.username if supervisor else "—"
+
     def save_model(self, request, obj, form, change):
         if not change and request.user.role == "supervisor":
-            obj.supervisor = request.user
             obj.building = request.user.building
         super().save_model(request, obj, form, change)
 
@@ -93,7 +97,7 @@ class WorkerModelAdmin(WorkerAdmin):
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
         if request.user.role == "supervisor":
-            readonly.extend(["building", "supervisor"])
+            readonly.append("building")
         return readonly
 
 
