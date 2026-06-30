@@ -71,6 +71,11 @@ UNFOLD = {
                         "link": reverse_lazy("admin:budget_budget_changelist"),
                     },
                     {
+                        "title": "Terms",
+                        "icon": "calendar_month",
+                        "link": reverse_lazy("admin:workers_term_changelist"),
+                    },
+                    {
                         "title": "Users",
                         "icon": "manage_accounts",
                         "link": reverse_lazy("admin:accounts_user_changelist"),

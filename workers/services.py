@@ -2,12 +2,12 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 
 from config.permissions import filter_by_worker_relation, filter_notes, filter_workers
-from workers.models import (
-    AttendanceRecord,
-    MonthlyScore,
-    Note,
-    Worker,
+from workers.attendance import (
+    limit_warnings_for_record,
+    limit_warnings_if_added,
+    resolve_term_for_date,
 )
+from workers.models import AttendanceRecord, MonthlyScore, Note, Worker
 
 
 def workers_for_user(user):
@@ -30,7 +30,7 @@ def notes_for_user(user, worker=None):
 
 def attendance_for_user(user, worker=None):
     qs = filter_by_worker_relation(
-        AttendanceRecord.objects.select_related("recorded_by", "worker"),
+        AttendanceRecord.objects.select_related("recorded_by", "worker", "term"),
         user,
     )
     if worker is not None:
@@ -60,24 +60,30 @@ def save_worker_for_user(user, worker, *, is_new=False):
 
 
 @transaction.atomic
-def create_attendance_record(user, worker, category, subtype, record_date):
+def create_attendance_record(user, worker, category, record_date):
     get_worker_for_user(user, worker.pk)
+    term = resolve_term_for_date(record_date)
+    for warning in limit_warnings_if_added(worker, term, category):
+        pass  # caller shows warnings via return value
     record = AttendanceRecord(
         worker=worker,
+        term=term,
         category=category,
-        subtype=subtype,
         record_date=record_date,
         recorded_by=user,
     )
     record.full_clean()
     record.save()
-    return record
+    return record, limit_warnings_for_record(record)
 
 
 @transaction.atomic
 def create_note(user, building, content, worker=None):
-    if user.role == "supervisor" and building_id_mismatch(user, building, worker):
-        raise PermissionDenied
+    if user.role == "supervisor":
+        if building.id != user.building_id:
+            raise PermissionDenied
+        if worker and worker.building_id != user.building_id:
+            raise PermissionDenied
     note = Note(
         worker=worker,
         building=building,
@@ -101,18 +107,3 @@ def save_monthly_score(user, worker, year, month, score):
     record.full_clean()
     record.save()
     return record
-
-
-def building_id_mismatch(user, building, worker):
-    if user.role != "supervisor":
-        return False
-    if building.id != user.building_id:
-        return True
-    if worker and worker.building_id != user.building_id:
-        return True
-    return False
-
-
-def validate_supervisor_building(user, building):
-    if user.role == "supervisor" and building.id != user.building_id:
-        raise PermissionDenied

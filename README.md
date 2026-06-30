@@ -50,6 +50,19 @@ Everyone uses the same **Unfold Admin** UI at `/admin/`. What you see is filtere
 
 `seed_demo_data` only inserts sample rows into the database (users, buildings, workers). Business rules live in `workers/services.py`, `config/permissions.py`, and Admin.
 
+## Attendance (per semester)
+
+Supervisors only pick **category** (Absence / Tardy / No Show) and **date**. The system:
+
+- Assigns the record to the matching **Term** (semester) by date
+- Auto-numbers occurrences: Absence #1, #2, #3…
+- Enforces term limits with **warnings** (not blocks):
+  - **4** absences
+  - **4** tardies
+  - **1** no show
+
+Directors add terms under **Workers → Terms** (e.g. `2026 Spring` with start/end dates).
+
 ## Worker fields
 
 - **POS #** (`position_number`) — position slot at that building, from the original spreadsheet "POS #" column (e.g. `1`, `2`). **Lead** (`is_lead`) marks team-lead slots (old sheet suffix `-L`).

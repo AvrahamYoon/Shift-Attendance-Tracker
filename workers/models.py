@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 
 class WorkerStatus(models.TextChoices):
@@ -12,6 +13,37 @@ class TermStatus(models.TextChoices):
     STAYING = "staying", "Staying"
     LEAVING = "leaving", "Leaving"
     NEW = "new", "New"
+
+
+class Term(models.Model):
+    """Academic semester used for attendance limits and totals."""
+
+    name = models.CharField(max_length=100, help_text='e.g. "2026 Spring"')
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    class Meta:
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        super().clean()
+        if self.start_date and self.end_date and self.start_date > self.end_date:
+            raise ValidationError({"end_date": "End date must be on or after start date."})
+
+    @classmethod
+    def for_date(cls, record_date):
+        return (
+            cls.objects.filter(start_date__lte=record_date, end_date__gte=record_date)
+            .order_by("-start_date")
+            .first()
+        )
+
+    @classmethod
+    def current(cls):
+        return cls.for_date(timezone.localdate())
 
 
 class Worker(models.Model):
@@ -78,54 +110,18 @@ class AttendanceCategory(models.TextChoices):
     TARDY = "tardy", "Tardy"
 
 
-class AttendanceSubtype(models.TextChoices):
-    ABSENCE_1 = "absence_1", "Absence 1"
-    ABSENCE_2 = "absence_2", "Absence 2"
-    ABSENCE_3 = "absence_3", "Absence 3"
-    ABSENCE_4 = "absence_4", "Absence 4"
-    NO_SHOW_1 = "no_show_1", "No Show 1"
-    NO_SHOW_2 = "no_show_2", "No Show 2"
-    TARDY_1 = "tardy_1", "Tardy 1"
-    TARDY_2 = "tardy_2", "Tardy 2"
-    TARDY_3 = "tardy_3", "Tardy 3"
-    TARDY_4 = "tardy_4", "Tardy 4"
-    VERBAL = "verbal", "Verbal"
-    WRITTEN = "written", "Written"
-
-CATEGORY_SUBTYPE_MAP = {
-    AttendanceCategory.ABSENCE: {
-        AttendanceSubtype.ABSENCE_1,
-        AttendanceSubtype.ABSENCE_2,
-        AttendanceSubtype.ABSENCE_3,
-        AttendanceSubtype.ABSENCE_4,
-        AttendanceSubtype.VERBAL,
-        AttendanceSubtype.WRITTEN,
-    },
-    AttendanceCategory.NO_SHOW: {
-        AttendanceSubtype.NO_SHOW_1,
-        AttendanceSubtype.NO_SHOW_2,
-        AttendanceSubtype.VERBAL,
-        AttendanceSubtype.WRITTEN,
-    },
-    AttendanceCategory.TARDY: {
-        AttendanceSubtype.TARDY_1,
-        AttendanceSubtype.TARDY_2,
-        AttendanceSubtype.TARDY_3,
-        AttendanceSubtype.TARDY_4,
-        AttendanceSubtype.VERBAL,
-        AttendanceSubtype.WRITTEN,
-    },
-}
-
-
 class AttendanceRecord(models.Model):
     worker = models.ForeignKey(
         Worker,
         on_delete=models.CASCADE,
         related_name="attendance_records",
     )
+    term = models.ForeignKey(
+        Term,
+        on_delete=models.PROTECT,
+        related_name="attendance_records",
+    )
     category = models.CharField(max_length=20, choices=AttendanceCategory.choices)
-    subtype = models.CharField(max_length=20, choices=AttendanceSubtype.choices)
     record_date = models.DateField()
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -138,20 +134,16 @@ class AttendanceRecord(models.Model):
         ordering = ["-record_date", "-created_at"]
 
     def __str__(self):
-        return f"{self.worker} — {self.get_category_display()} / {self.get_subtype_display()} ({self.record_date})"
+        from workers.attendance import occurrence_label
 
-    def clean(self):
-        super().clean()
-        allowed = CATEGORY_SUBTYPE_MAP.get(self.category, set())
-        if self.subtype not in allowed:
-            raise ValidationError(
-                {
-                    "subtype": (
-                        f"Subtype '{self.subtype}' is not valid for "
-                        f"category '{self.category}'."
-                    )
-                }
-            )
+        return f"{self.worker} — {occurrence_label(self)} ({self.record_date})"
+
+    def save(self, *args, **kwargs):
+        if not self.term_id and self.record_date:
+            from workers.attendance import resolve_term_for_date
+
+            self.term = resolve_term_for_date(self.record_date)
+        super().save(*args, **kwargs)
 
 
 class Note(models.Model):
@@ -225,27 +217,3 @@ class MonthlyScore(models.Model):
 
     def __str__(self):
         return f"{self.worker} — {self.year}-{self.month:02d}: {self.score}"
-
-
-def attendance_totals_for_worker(worker, year=None, month=None):
-    """Return attendance counts grouped by category and subtype."""
-    qs = worker.attendance_records.all()
-    if year is not None:
-        qs = qs.filter(record_date__year=year)
-    if month is not None:
-        qs = qs.filter(record_date__month=month)
-
-    totals = {
-        AttendanceCategory.ABSENCE: {},
-        AttendanceCategory.NO_SHOW: {},
-        AttendanceCategory.TARDY: {},
-    }
-    for category in totals:
-        for subtype, _label in AttendanceSubtype.choices:
-            if subtype in CATEGORY_SUBTYPE_MAP.get(category, set()):
-                count = qs.filter(category=category, subtype=subtype).count()
-                if count:
-                    totals[category][subtype] = count
-
-    totals["grand_total"] = qs.count()
-    return totals

@@ -1,9 +1,11 @@
+from datetime import date
+
 from django.core.management.base import BaseCommand
 
 from accounts.models import Role, User
 from buildings.models import Building
 from budget.models import Budget
-from workers.models import Worker, WorkerStatus
+from workers.models import Term, Worker, WorkerStatus
 
 
 class Command(BaseCommand):
@@ -23,6 +25,14 @@ class Command(BaseCommand):
         building_b, _ = Building.objects.get_or_create(
             name="South Hall",
             defaults={"address": "200 Campus Dr"},
+        )
+
+        Term.objects.get_or_create(
+            name="2026 Spring",
+            defaults={
+                "start_date": date(2026, 1, 10),
+                "end_date": date(2026, 5, 20),
+            },
         )
 
         director, created = User.objects.get_or_create(
