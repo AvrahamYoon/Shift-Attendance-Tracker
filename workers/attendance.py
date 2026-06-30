@@ -11,6 +11,21 @@ TERM_ATTENDANCE_LIMITS = {
     AttendanceCategory.NO_SHOW: 1,
 }
 
+DISPLAY_CATEGORIES = (
+    AttendanceCategory.ABSENCE,
+    AttendanceCategory.TARDY,
+    AttendanceCategory.NO_SHOW,
+)
+
+
+def summary_overall_status(summary):
+    """'over' | 'at_limit' | 'ok' for display highlighting."""
+    if any(summary[category.value]["exceeded"] for category in DISPLAY_CATEGORIES):
+        return "over"
+    if any(summary[category.value]["at_limit"] for category in DISPLAY_CATEGORIES):
+        return "at_limit"
+    return "ok"
+
 
 def resolve_term_for_date(record_date):
     term = Term.for_date(record_date)
@@ -87,20 +102,25 @@ def limit_warnings_for_record(record):
     info = summary.get(record.category)
     if not info:
         return []
-    warnings = []
     n = occurrence_number(record)
     label = info["label"]
     if info["exceeded"]:
-        warnings.append(
-            f"{record.worker.name} now has {info['count']} {label.lower()} "
-            f"this term (limit {info['limit']}). This is #{n}."
-        )
-    elif info["at_limit"]:
-        warnings.append(
-            f"{record.worker.name} has reached the term limit for "
-            f"{label.lower()} ({info['limit']}/{info['limit']}). This is #{n}."
-        )
-    return warnings
+        return [
+            (
+                "error",
+                f"{record.worker.name} now has {info['count']} {label.lower()} "
+                f"this term (limit {info['limit']}). This is #{n} — OVER LIMIT.",
+            )
+        ]
+    if info["at_limit"]:
+        return [
+            (
+                "warning",
+                f"{record.worker.name} has reached the term limit for "
+                f"{label.lower()} ({info['limit']}/{info['limit']}). This is #{n}.",
+            )
+        ]
+    return []
 
 
 def limit_warnings_if_added(worker, term, category):
@@ -112,12 +132,18 @@ def limit_warnings_if_added(worker, term, category):
     label = info["label"]
     if new_count > limit:
         return [
-            f"This would be {label.lower()} #{new_count} this term "
-            f"(limit {limit}) — over the allowed count."
+            (
+                "error",
+                f"This would be {label.lower()} #{new_count} this term "
+                f"(limit {limit}) — OVER the allowed count.",
+            )
         ]
     if new_count == limit:
         return [
-            f"This would reach the term limit for {label.lower()} "
-            f"({limit}/{limit})."
+            (
+                "warning",
+                f"This would reach the term limit for {label.lower()} "
+                f"({limit}/{limit}).",
+            )
         ]
     return []

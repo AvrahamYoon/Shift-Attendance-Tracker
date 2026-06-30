@@ -1,3 +1,4 @@
+from django.templatetags.static import static
 from django.urls import reverse_lazy
 
 UNFOLD = {
@@ -85,6 +86,6 @@ UNFOLD = {
         ],
     },
     "STYLES": [
-        "/static/css/custom.css",
+        lambda request: static("css/custom.css"),
     ],
 }

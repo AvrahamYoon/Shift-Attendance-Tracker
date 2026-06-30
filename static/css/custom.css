@@ -7,3 +7,123 @@
 .inline-group .tabular {
     overflow-x: auto;
 }
+
+/* Term attendance limit highlighting */
+
+.attendance-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    margin: 0 0.2rem 0.2rem 0;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.attendance-badge--over {
+    background: #fecaca;
+    color: #991b1b;
+}
+
+.attendance-badge--ok {
+    background: #bbf7d0;
+    color: #166534;
+}
+
+.attendance-badge--over-half {
+    background: #fed7aa;
+    color: #9a3412;
+}
+
+.attendance-badge--at-limit {
+    background: #fef08a;
+    color: #854d0e;
+}
+
+.worker-over-limit-flag {
+    display: inline-block;
+    background: oklch(52% 0.22 25);
+    color: white;
+    font-weight: 800;
+    padding: 0.3rem 0.55rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.worker-at-limit-flag {
+    display: inline-block;
+    background: oklch(88% 0.14 75);
+    color: oklch(32% 0.14 55);
+    font-weight: 700;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.attendance-alert-over {
+    background: oklch(95% 0.05 25);
+    border: 2px solid oklch(52% 0.22 25);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 1rem;
+    color: oklch(32% 0.14 25);
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.attendance-alert-at-limit {
+    background: oklch(96% 0.04 75);
+    border: 2px solid oklch(72% 0.14 55);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    color: oklch(32% 0.12 55);
+    font-weight: 600;
+}
+
+.attendance-summary-table {
+    width: 100%;
+    max-width: 28rem;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+}
+
+.attendance-summary-table th,
+.attendance-summary-table td {
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid oklch(90% 0.01 250);
+}
+
+.attendance-summary-table th {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: oklch(45% 0.02 250);
+}
+
+.attendance-summary-row--over td {
+    background: #fef2f2;
+}
+
+.attendance-summary-row--over-half td {
+    background: #fff7ed;
+}
+
+.attendance-summary-row--at-limit td {
+    background: oklch(96% 0.04 75);
+    font-weight: 600;
+}
+
+.attendance-summary-status {
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-left: 0.5rem;
+}
