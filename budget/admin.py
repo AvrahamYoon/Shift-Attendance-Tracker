@@ -1,11 +1,12 @@
 from django.contrib import admin
 
 from budget.models import Budget
-from config.admin_mixins import BudgetAdmin
+from config.admin_mixins import AuditStampAdminMixin, BudgetAdmin
 
 
 @admin.register(Budget)
-class BudgetModelAdmin(BudgetAdmin):
+class BudgetModelAdmin(AuditStampAdminMixin, BudgetAdmin):
+    audit_fields = ("set_by",)
     list_display = (
         "period",
         "building",
@@ -27,8 +28,3 @@ class BudgetModelAdmin(BudgetAdmin):
         variance = obj.headcount_variance
         prefix = "+" if variance > 0 else ""
         return f"{prefix}{variance}"
-
-    def save_model(self, request, obj, form, change):
-        if not change:
-            obj.set_by = request.user
-        super().save_model(request, obj, form, change)

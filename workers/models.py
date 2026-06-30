@@ -209,7 +209,7 @@ class MonthlyScore(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="monthly_scores_given",
-        limit_choices_to={"role": "supervisor"},
+        verbose_name="scored by",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

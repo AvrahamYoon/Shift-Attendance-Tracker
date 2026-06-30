@@ -24,6 +24,53 @@ def staff_with_role(request):
     )
 
 
+class AuditStampAdminMixin:
+    """Auto-stamp who created a record and prevent changing it later."""
+
+    audit_fields = ()
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(super().get_readonly_fields(request, obj))
+        for field in self.audit_fields:
+            if field not in readonly:
+                readonly.append(field)
+        return readonly
+
+    def save_model(self, request, obj, form, change):
+        self._apply_audit_fields(request, obj, change)
+        super().save_model(request, obj, form, change)
+
+    def _apply_audit_fields(self, request, obj, change):
+        if not self.audit_fields:
+            return
+        if change:
+            original = obj.__class__.objects.filter(pk=obj.pk).first()
+            if original:
+                for field in self.audit_fields:
+                    setattr(obj, field, getattr(original, field))
+        else:
+            for field in self.audit_fields:
+                setattr(obj, field, request.user)
+
+
+class InlineAuditStampMixin:
+    """Stamp audit fields on tabular inlines; keep them off the editable form."""
+
+    audit_field = None
+
+    def get_fields(self, request, obj=None):
+        fields = list(super().get_fields(request, obj))
+        if self.audit_field and self.audit_field in fields:
+            fields.remove(self.audit_field)
+        return fields
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(super().get_readonly_fields(request, obj))
+        if obj is not None and self.audit_field and self.audit_field not in readonly:
+            readonly.append(self.audit_field)
+        return readonly
+
+
 class RoleFilteredAdminMixin:
     """Role-based queryset filtering and admin permissions without Django perms."""
 
