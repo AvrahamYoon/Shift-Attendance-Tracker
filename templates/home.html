@@ -1,78 +1,133 @@
 {% extends "unfold/layouts/skeleton.html" %}
 {% load i18n static unfold %}
 
-{% block title %}Shift Attendance Tracker{% endblock %}
+{% block title %}{{ site_title|default:"Shift Attendance" }}{% endblock %}
 
-{% block bodyclass %}{{ block.super }}bg-base-50 dark:bg-base-900{% endblock %}
+{% block extrastyle %}
+    {{ block.super }}
+    <link href="{% static 'css/home.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} home-page{% endblock %}
 
 {% block base %}
-<div class="min-h-screen flex flex-col">
-    <header class="border-b border-base-200 bg-white/90 backdrop-blur sticky top-0 z-20 dark:bg-base-900/90 dark:border-base-800">
-        <div class="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
-            <div class="flex items-center gap-3">
-                <span class="material-symbols-outlined text-primary-600 text-3xl">fact_check</span>
-                <div>
-                    <p class="font-semibold text-base-900 dark:text-base-100 leading-tight">Attendance Tracker</p>
-                    <p class="text-sm text-base-500 dark:text-base-400">Student employee work attendance</p>
-                </div>
-            </div>
-            <a href="{% url 'accounts:login' %}"
-               class="inline-flex items-center gap-2 rounded-default bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 transition-colors">
-                <span class="material-symbols-outlined text-base">login</span>
-                Sign in
-            </a>
+<div class="home-page bg-base-50 dark:bg-base-900">
+    <header class="home-topbar">
+        <a href="{% url 'home' %}" class="home-brand">
+            <span class="material-symbols-outlined text-primary-600 text-3xl">{{ site_symbol|default:"fact_check" }}</span>
+            <span>
+                <strong>{{ site_header|default:"Attendance Tracker" }}</strong>
+                <small>{{ site_subheader|default:"Student employee work attendance" }}</small>
+            </span>
+        </a>
+        <div class="flex items-center gap-2">
+            {% if not theme %}
+                {% include "unfold/helpers/theme_switch_dropdown.html" %}
+            {% endif %}
+            {% if user.is_authenticated %}
+                <a href="{% url 'admin:index' %}" class="home-btn home-btn-primary">
+                    <span class="material-symbols-outlined text-base">dashboard</span>
+                    Open Admin
+                </a>
+            {% else %}
+                <a href="{% url 'accounts:login' %}" class="home-btn home-btn-primary">
+                    <span class="material-symbols-outlined text-base">login</span>
+                    Sign in
+                </a>
+            {% endif %}
         </div>
     </header>
 
-    <main class="flex-grow">
-        <section class="container mx-auto px-4 py-16 lg:py-24">
-            <div class="max-w-3xl">
-                <p class="text-sm font-semibold uppercase tracking-wide text-primary-600 mb-3">Internal management tool</p>
-                <h1 class="text-4xl lg:text-5xl font-bold text-base-900 dark:text-base-100 leading-tight mb-6">
-                    Track tardy, absence, and performance in one place
-                </h1>
-                <p class="text-lg text-base-600 dark:text-base-300 mb-8 leading-relaxed">
-                    Supervisors log daily attendance for student employees. Managers review headcount budgets.
-                    Directors get a full overview across buildings.
-                </p>
-                <div class="flex flex-wrap gap-3">
-                    <a href="{% url 'accounts:login' %}"
-                       class="inline-flex items-center gap-2 rounded-default bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors">
-                        Sign in
+    <div class="home-shell">
+        <section class="home-main">
+            <p class="home-eyebrow">
+                <span class="material-symbols-outlined text-sm">apartment</span>
+                BYU-Idaho internal tool
+            </p>
+            <h1 class="home-title">Attendance, notes, and staffing — organized by building.</h1>
+            <p class="home-lead">
+                Supervisors record tardy, absence, and no-shows. Managers review budgets.
+                Directors see everything across campus buildings from one admin workspace.
+            </p>
+
+            <div class="home-actions">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'admin:index' %}" class="home-btn home-btn-primary">
+                        <span class="material-symbols-outlined text-base">arrow_forward</span>
+                        Go to dashboard
                     </a>
+                {% else %}
+                    <a href="{% url 'accounts:login' %}" class="home-btn home-btn-primary">
+                        <span class="material-symbols-outlined text-base">login</span>
+                        Sign in to Admin
+                    </a>
+                {% endif %}
+            </div>
+
+            <div class="home-features">
+                <article class="home-feature">
+                    <div class="home-feature-icon">
+                        <span class="material-symbols-outlined">supervisor_account</span>
+                    </div>
+                    <div>
+                        <h3>Supervisors</h3>
+                        <p>Log attendance by day, add notes, and score workers for buildings you manage.</p>
+                    </div>
+                </article>
+                <article class="home-feature">
+                    <div class="home-feature-icon">
+                        <span class="material-symbols-outlined">account_balance_wallet</span>
+                    </div>
+                    <div>
+                        <h3>Managers</h3>
+                        <p>Review team activity and set headcount budgets per building and period.</p>
+                    </div>
+                </article>
+                <article class="home-feature">
+                    <div class="home-feature-icon">
+                        <span class="material-symbols-outlined">dashboard</span>
+                    </div>
+                    <div>
+                        <h3>Directors</h3>
+                        <p>Full visibility across users, buildings, terms, and attendance history.</p>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <aside class="home-aside" aria-hidden="true">
+            <div class="home-aside-inner">
+                <div class="home-aside-card">
+                    <h2>Built for semester rhythm</h2>
+                    <p>
+                        Term limits, BYUI calendar sync, and color-coded counts help you spot
+                        issues before they become problems.
+                    </p>
+                    <div class="home-metrics">
+                        <div class="home-metric">
+                            <strong>4 / 4</strong>
+                            <span>Absence days / term</span>
+                        </div>
+                        <div class="home-metric">
+                            <strong>1</strong>
+                            <span>No-show limit</span>
+                        </div>
+                        <div class="home-metric">
+                            <strong>MT</strong>
+                            <span>Mountain Time dates</span>
+                        </div>
+                        <div class="home-metric">
+                            <strong>BYUI</strong>
+                            <span>Fall · Winter · Spring</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </section>
+        </aside>
+    </div>
 
-        <section class="container mx-auto px-4 pb-20">
-            <div class="grid gap-6 md:grid-cols-3">
-                <article class="rounded-default border border-base-200 bg-white p-6 shadow-xs dark:bg-base-900 dark:border-base-800">
-                    <span class="material-symbols-outlined text-primary-600 text-2xl mb-3">supervisor_account</span>
-                    <h2 class="font-semibold text-base-900 dark:text-base-100 mb-2">Supervisors</h2>
-                    <p class="text-sm text-base-600 dark:text-base-400 leading-relaxed">
-                        Manage workers in your building, record attendance, add notes, and submit monthly scores — all in Admin.
-                    </p>
-                </article>
-                <article class="rounded-default border border-base-200 bg-white p-6 shadow-xs dark:bg-base-900 dark:border-base-800">
-                    <span class="material-symbols-outlined text-primary-600 text-2xl mb-3">analytics</span>
-                    <h2 class="font-semibold text-base-900 dark:text-base-100 mb-2">Managers</h2>
-                    <p class="text-sm text-base-600 dark:text-base-400 leading-relaxed">
-                        Review team data, set headcount budgets, and compare allocated vs actual staffing.
-                    </p>
-                </article>
-                <article class="rounded-default border border-base-200 bg-white p-6 shadow-xs dark:bg-base-900 dark:border-base-800">
-                    <span class="material-symbols-outlined text-primary-600 text-2xl mb-3">dashboard</span>
-                    <h2 class="font-semibold text-base-900 dark:text-base-100 mb-2">Directors</h2>
-                    <p class="text-sm text-base-600 dark:text-base-400 leading-relaxed">
-                        Full visibility across buildings, users, attendance history, and organization-wide reports.
-                    </p>
-                </article>
-            </div>
-        </section>
-    </main>
-
-    <footer class="border-t border-base-200 py-6 text-center text-sm text-base-500 dark:border-base-800 dark:text-base-400">
-        Shift Attendance Tracker
+    <footer class="home-footer">
+        {{ site_title|default:"Shift Attendance" }} · Student employee work attendance
     </footer>
 </div>
 {% endblock %}
