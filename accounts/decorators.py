@@ -28,8 +28,8 @@ def supervisor_required(view_func):
     def wrapper(request, *args, **kwargs):
         if request.user.role != Role.SUPERVISOR:
             raise PermissionDenied
-        if not request.user.building_id:
-            raise PermissionDenied("Supervisor account has no building assigned.")
+        if not request.user.buildings.exists():
+            raise PermissionDenied("Supervisor account has no buildings assigned.")
         return view_func(request, *args, **kwargs)
 
     return wrapper

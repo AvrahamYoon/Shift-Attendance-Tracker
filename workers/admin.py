@@ -17,7 +17,7 @@ from config.admin_mixins import (
     WorkerAdmin,
     WorkerRelatedAdmin,
 )
-from config.permissions import filter_workers
+from config.permissions import filter_buildings, filter_workers, user_can_access_building
 from workers.attendance import (
     DISPLAY_CATEGORIES,
     attendance_summary_for_term,
@@ -27,7 +27,7 @@ from workers.attendance import (
     resolve_term_for_date,
     summary_overall_status,
 )
-from workers.forms import AbsenceRecordForm, AttendanceRecordForm
+from workers.forms import AbsenceRecordForm, AttendanceRecordForm, NoteForm
 from workers.models import AttendanceCategory, AttendanceRecord, MonthlyScore, Note, Term, Worker
 
 INLINE_AUDIT_FIELDS = {
@@ -200,11 +200,23 @@ class AttendanceRecordInline(TardyNoShowRecordInline):
 
 class NoteInline(InlineAuditStampMixin, TabularInline):
     model = Note
+    form = NoteForm
     audit_field = "author"
     extra = 0
     fk_name = "worker"
-    fields = ("content", "building", "created_at")
+    fields = ("building", "content", "created_at")
     readonly_fields = ("created_at",)
+
+    def get_formset(self, request, obj=None, **kwargs):
+        user = request.user
+        parent_worker = obj
+
+        class InlineNoteForm(NoteForm):
+            def __init__(self, *args, **kw):
+                super().__init__(*args, user=user, parent_worker=parent_worker, **kw)
+
+        kwargs["form"] = InlineNoteForm
+        return super().get_formset(request, obj, **kwargs)
 
 
 class MonthlyScoreInline(InlineAuditStampMixin, TabularInline):
@@ -378,7 +390,10 @@ class WorkerModelAdmin(WorkerAdmin):
 
     def save_model(self, request, obj, form, change):
         if not change and request.user.role == "supervisor":
-            obj.building = request.user.building
+            if not user_can_access_building(request.user, obj.building):
+                raise PermissionDenied(
+                    "You do not have permission to assign workers to this building."
+                )
         super().save_model(request, obj, form, change)
 
     def save_formset(self, request, form, formset, change):
@@ -402,12 +417,6 @@ class WorkerModelAdmin(WorkerAdmin):
                     setattr(instance, audit_field, getattr(original, audit_field))
             else:
                 setattr(instance, audit_field, request.user)
-            if (
-                model is Note
-                and request.user.role == "supervisor"
-                and not instance.building_id
-            ):
-                instance.building = request.user.building
 
     def _attendance_limit_messages(self, request, formset):
         for inline_form in formset.forms:
@@ -418,10 +427,17 @@ class WorkerModelAdmin(WorkerAdmin):
                 _dispatch_limit_message(request, level, text)
 
     def get_readonly_fields(self, request, obj=None):
-        readonly = list(super().get_readonly_fields(request, obj))
-        if request.user.role == "supervisor":
-            readonly.append("building")
-        return readonly
+        return list(super().get_readonly_fields(request, obj))
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "building":
+            from buildings.models import Building
+
+            kwargs["queryset"] = filter_buildings(
+                Building.objects.order_by("name"),
+                request.user,
+            )
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
 @admin.register(AttendanceRecord)
@@ -541,6 +557,8 @@ class AttendanceRecordAdmin(AuditStampAdminMixin, WorkerRelatedAdmin):
 @admin.register(Note)
 class NoteModelAdmin(AuditStampAdminMixin, NoteAdmin):
     audit_fields = ("author",)
+    form = NoteForm
+    fields = ("building", "worker", "content")
     list_display = ("building", "worker", "author", "created_at", "content_preview")
     list_filter = ("building", "created_at")
     search_fields = ("content", "worker__name", "worker__i_number")
@@ -551,9 +569,34 @@ class NoteModelAdmin(AuditStampAdminMixin, NoteAdmin):
     def content_preview(self, obj):
         return obj.content[:80] + ("…" if len(obj.content) > 80 else "")
 
+    def get_form(self, request, obj=None, **kwargs):
+        user = request.user
+
+        class RequestNoteForm(NoteForm):
+            def __init__(self, *args, **kw):
+                super().__init__(*args, user=user, **kw)
+
+        kwargs["form"] = RequestNoteForm
+        return super().get_form(request, obj, **kwargs)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "building":
+            from buildings.models import Building
+
+            kwargs["queryset"] = filter_buildings(
+                Building.objects.order_by("name"),
+                request.user,
+            )
+        if db_field.name == "worker":
+            kwargs["queryset"] = filter_workers(
+                Worker.objects.select_related("building").order_by("name"),
+                request.user,
+            )
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
     def save_model(self, request, obj, form, change):
-        if request.user.role == "supervisor" and not obj.building_id:
-            obj.building = request.user.building
+        if not user_can_access_building(request.user, obj.building):
+            raise PermissionDenied("You do not have permission to use this building.")
         super().save_model(request, obj, form, change)
 
 

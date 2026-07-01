@@ -1,7 +1,12 @@
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 
-from config.permissions import filter_by_worker_relation, filter_notes, filter_workers
+from config.permissions import (
+    filter_by_worker_relation,
+    filter_notes,
+    filter_workers,
+    user_can_access_building,
+)
 from workers.attendance import (
     limit_warnings_for_record,
     limit_warnings_if_added,
@@ -51,7 +56,8 @@ def scores_for_user(user, worker=None):
 @transaction.atomic
 def save_worker_for_user(user, worker, *, is_new=False):
     if user.role == "supervisor":
-        worker.building = user.building
+        if not user_can_access_building(user, worker.building):
+            raise PermissionDenied
     elif is_new:
         raise PermissionDenied
     worker.full_clean()
@@ -81,11 +87,12 @@ def create_attendance_record(user, worker, category, record_date=None):
 
 @transaction.atomic
 def create_note(user, building, content, worker=None):
-    if user.role == "supervisor":
-        if building.id != user.building_id:
-            raise PermissionDenied
-        if worker and worker.building_id != user.building_id:
-            raise PermissionDenied
+    if not user_can_access_building(user, building):
+        raise PermissionDenied
+    if worker and worker.building_id != building.id:
+        raise PermissionDenied
+    if worker and not filter_workers(Worker.objects.filter(pk=worker.pk), user).exists():
+        raise PermissionDenied
     note = Note(
         worker=worker,
         building=building,

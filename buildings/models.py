@@ -18,7 +18,11 @@ class Building(models.Model):
         return self.workers.filter(status=WorkerStatus.ACTIVE).count()
 
     @property
-    def current_supervisor(self):
+    def supervisors(self):
         from accounts.models import Role
 
-        return self.supervisor_users.filter(role=Role.SUPERVISOR).first()
+        return self.supervisor_users.filter(role=Role.SUPERVISOR).order_by("username")
+
+    @property
+    def current_supervisor(self):
+        return self.supervisors.first()

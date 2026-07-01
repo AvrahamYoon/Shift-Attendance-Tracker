@@ -1,5 +1,3 @@
-from datetime import date
-
 from django.core.management.base import BaseCommand
 
 from accounts.models import Role, User
@@ -65,7 +63,6 @@ class Command(BaseCommand):
                 "last_name": "Supervisor",
                 "email": "north@example.com",
                 "role": Role.SUPERVISOR,
-                "building": building_a,
                 "manager": manager,
                 "is_staff": True,
             },
@@ -73,6 +70,7 @@ class Command(BaseCommand):
         if created:
             sup_north.set_password("demo1234")
             sup_north.save()
+        sup_north.buildings.set([building_a])
 
         sup_south, created = User.objects.get_or_create(
             username="supervisor_south",
@@ -81,7 +79,6 @@ class Command(BaseCommand):
                 "last_name": "Supervisor",
                 "email": "south@example.com",
                 "role": Role.SUPERVISOR,
-                "building": building_b,
                 "manager": manager,
                 "is_staff": True,
             },
@@ -89,6 +86,23 @@ class Command(BaseCommand):
         if created:
             sup_south.set_password("demo1234")
             sup_south.save()
+        sup_south.buildings.set([building_b])
+
+        sup_multi, created = User.objects.get_or_create(
+            username="supervisor_multi",
+            defaults={
+                "first_name": "Taylor",
+                "last_name": "Supervisor",
+                "email": "multi@example.com",
+                "role": Role.SUPERVISOR,
+                "manager": manager,
+                "is_staff": True,
+            },
+        )
+        if created:
+            sup_multi.set_password("demo1234")
+            sup_multi.save()
+        sup_multi.buildings.set([building_a, building_b])
 
         workers = [
             {
@@ -132,3 +146,4 @@ class Command(BaseCommand):
         self.stdout.write("  manager / demo1234")
         self.stdout.write("  supervisor_north / demo1234")
         self.stdout.write("  supervisor_south / demo1234")
+        self.stdout.write("  supervisor_multi / demo1234  (both buildings)")
