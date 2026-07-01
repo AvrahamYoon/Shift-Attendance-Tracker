@@ -1,6 +1,5 @@
-from django.contrib import admin, messages
+from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django.core.exceptions import ValidationError
 from unfold.admin import ModelAdmin
 
 from accounts.models import Role, User
@@ -19,7 +18,16 @@ PRIVILEGED_USER_FIELDS = (
 DIRECTOR_FIELDSETS = (
     (None, {"fields": ("username", "password")}),
     ("Personal info", {"fields": ("first_name", "last_name", "email")}),
-    ("Role & assignment", {"fields": ("role", "buildings", "manager")}),
+    (
+        "Role & assignment",
+        {
+            "fields": ("role", "manager", "supervised_buildings_display"),
+            "description": (
+                "Assign buildings on the Buildings screen — each building has "
+                "exactly one supervisor."
+            ),
+        },
+    ),
     ("Admin access", {"fields": ("is_staff", "is_active")}),
     ("Important dates", {"fields": ("last_login", "date_joined")}),
 )
@@ -32,27 +40,41 @@ SELF_EDIT_FIELDSETS = (
 READ_ONLY_USER_FIELDSETS = (
     (None, {"fields": ("username",)}),
     ("Personal info", {"fields": ("first_name", "last_name", "email")}),
-    ("Role & assignment", {"fields": ("role", "buildings_display", "manager")}),
+    ("Role & assignment", {"fields": ("role", "supervised_buildings_display", "manager")}),
     ("Admin access", {"fields": ("is_staff", "is_active")}),
 )
 
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin, ModelAdmin):
-    list_display = ("username", "email", "role", "buildings_display", "manager", "is_staff")
-    list_filter = ("role", "is_staff", "buildings")
+    list_display = (
+        "username",
+        "email",
+        "role",
+        "supervised_buildings_display",
+        "manager",
+        "is_staff",
+    )
+    list_filter = ("role", "is_staff")
     search_fields = ("username", "first_name", "last_name", "email")
-    filter_horizontal = ("buildings",)
+    filter_horizontal = ()
 
     add_fieldsets = (
         (None, {"fields": ("username", "password1", "password2")}),
         ("Personal info", {"fields": ("first_name", "last_name", "email")}),
-        ("Role & assignment", {"fields": ("role", "buildings", "manager")}),
+        ("Role & assignment", {"fields": ("role", "manager")}),
         ("Admin access", {"fields": ("is_staff", "is_active")}),
     )
 
     def get_fieldsets(self, request, obj=None):
         if request.user.role == Role.DIRECTOR:
+            if obj is None:
+                return (
+                    (None, {"fields": ("username", "password1", "password2")}),
+                    ("Personal info", {"fields": ("first_name", "last_name", "email")}),
+                    ("Role & assignment", {"fields": ("role", "manager")}),
+                    ("Admin access", {"fields": ("is_staff", "is_active")}),
+                )
             return DIRECTOR_FIELDSETS
         if obj is None:
             return SELF_EDIT_FIELDSETS
@@ -62,7 +84,8 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
-        if request.user.role == Role.DIRECTOR:
+        if request.user.role == Role.DIRECTOR and obj is not None:
+            readonly.append("supervised_buildings_display")
             return readonly
         if obj is None:
             return readonly + ["username"]
@@ -72,7 +95,7 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
             field.name
             for field in User._meta.fields
             if field.name not in ("id",)
-        ] + ["buildings_display"]
+        ] + ["supervised_buildings_display"]
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -85,8 +108,13 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
         return qs
 
     @admin.display(description="Buildings")
-    def buildings_display(self, obj):
-        return ", ".join(obj.buildings.order_by("name").values_list("name", flat=True)) or "—"
+    def supervised_buildings_display(self, obj):
+        return (
+            ", ".join(
+                obj.supervised_buildings.order_by("name").values_list("name", flat=True)
+            )
+            or "—"
+        )
 
     def has_module_permission(self, request):
         return request.user.is_staff and request.user.role in Role.values
@@ -123,21 +151,3 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
             for field in PRIVILEGED_USER_FIELDS:
                 setattr(obj, field, getattr(original, field))
         super().save_model(request, obj, form, change)
-
-    def save_related(self, request, form, formsets, change):
-        super().save_related(request, form, formsets, change)
-        user = form.instance
-        if request.user.role == Role.DIRECTOR and user.role == Role.SUPERVISOR:
-            if not user.buildings.exists():
-                messages.error(
-                    request,
-                    f"Supervisor {user.username} must be assigned to at least one building.",
-                )
-                raise ValidationError(
-                    "Supervisors must be assigned to at least one building."
-                )
-        elif request.user.role == Role.DIRECTOR and user.role != Role.SUPERVISOR:
-            user.buildings.clear()
-        if request.user.role != Role.DIRECTOR and change:
-            original = User.objects.get(pk=form.instance.pk)
-            form.instance.buildings.set(original.buildings.all())

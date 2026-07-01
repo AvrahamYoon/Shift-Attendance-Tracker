@@ -10,9 +10,9 @@ def accessible_buildings(user):
     if user.role == "director":
         return Building.objects.all()
     if user.role == "supervisor":
-        return user.buildings.all()
+        return Building.objects.filter(supervisor=user)
     if user.role == "manager":
-        return Building.objects.filter(supervisor_users__manager=user).distinct()
+        return Building.objects.filter(supervisor__manager=user).distinct()
     return Building.objects.none()
 
 

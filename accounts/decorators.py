@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 
 from accounts.models import Role
+from buildings.models import Building
 
 
 def role_required(*roles):
@@ -28,7 +29,7 @@ def supervisor_required(view_func):
     def wrapper(request, *args, **kwargs):
         if request.user.role != Role.SUPERVISOR:
             raise PermissionDenied
-        if not request.user.buildings.exists():
+        if not Building.objects.filter(supervisor=request.user).exists():
             raise PermissionDenied("Supervisor account has no buildings assigned.")
         return view_func(request, *args, **kwargs)
 

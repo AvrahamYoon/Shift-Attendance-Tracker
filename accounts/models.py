@@ -15,12 +15,6 @@ class User(AbstractUser):
         choices=Role.choices,
         default=Role.SUPERVISOR,
     )
-    buildings = models.ManyToManyField(
-        "buildings.Building",
-        related_name="supervisor_users",
-        blank=True,
-        help_text="Buildings this supervisor is allowed to manage.",
-    )
     manager = models.ForeignKey(
         "self",
         null=True,
