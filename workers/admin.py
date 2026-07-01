@@ -1,5 +1,6 @@
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied
+from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils import timezone
@@ -98,6 +99,15 @@ def _attendance_limit_cell_html(summary, category_value):
     return _attendance_count_html(summary[category_value])
 
 
+class AttendanceInlineMixin:
+    def get_fields(self, request, obj=None):
+        fields = list(super().get_fields(request, obj))
+        record_admin = self.admin_site._registry[AttendanceRecord]
+        if not record_admin.has_delete_permission(request):
+            fields = [field for field in fields if field != "inline_delete_link"]
+        return fields
+
+
 @admin.register(Term)
 class TermAdmin(RoleFilteredAdminMixin, ModelAdmin):
     permission_filter = None
@@ -120,16 +130,16 @@ class TermAdmin(RoleFilteredAdminMixin, ModelAdmin):
         return "—"
 
 
-class AbsenceRecordInline(InlineAuditStampMixin, TabularInline):
+class AbsenceRecordInline(AttendanceInlineMixin, InlineAuditStampMixin, TabularInline):
     model = AttendanceRecord
     form = AbsenceRecordForm
     audit_field = "recorded_by"
     verbose_name = "Absence day"
     verbose_name_plural = "Absence days"
     extra = 1
-    can_delete = True
-    fields = ("record_date", "occurrence_display", "created_at")
-    readonly_fields = ("occurrence_display", "created_at")
+    can_delete = False
+    fields = ("record_date", "occurrence_display", "inline_delete_link", "created_at")
+    readonly_fields = ("occurrence_display", "inline_delete_link", "created_at")
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -141,16 +151,27 @@ class AbsenceRecordInline(InlineAuditStampMixin, TabularInline):
             return "—"
         return occurrence_label(obj)
 
+    @admin.display(description="")
+    def inline_delete_link(self, obj):
+        if not obj.pk:
+            return ""
+        url = reverse("admin:workers_attendancerecord_delete", args=[obj.pk])
+        return format_html(
+            '<a href="{}" style="color:#dc2626;font-weight:600;">Delete</a>',
+            url,
+        )
 
-class TardyNoShowRecordInline(InlineAuditStampMixin, TabularInline):
+
+class TardyNoShowRecordInline(AttendanceInlineMixin, InlineAuditStampMixin, TabularInline):
     model = AttendanceRecord
     form = AttendanceRecordForm
     audit_field = "recorded_by"
     verbose_name = "Tardy / No show"
     verbose_name_plural = "Tardy / No show"
     extra = 0
-    fields = ("category", "record_date", "occurrence_display", "created_at")
-    readonly_fields = ("occurrence_display", "created_at")
+    can_delete = False
+    fields = ("category", "record_date", "occurrence_display", "inline_delete_link", "created_at")
+    readonly_fields = ("occurrence_display", "inline_delete_link", "created_at")
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -161,6 +182,16 @@ class TardyNoShowRecordInline(InlineAuditStampMixin, TabularInline):
         if not obj.pk:
             return "—"
         return occurrence_label(obj)
+
+    @admin.display(description="")
+    def inline_delete_link(self, obj):
+        if not obj.pk:
+            return ""
+        url = reverse("admin:workers_attendancerecord_delete", args=[obj.pk])
+        return format_html(
+            '<a href="{}" style="color:#dc2626;font-weight:600;">Delete</a>',
+            url,
+        )
 
 
 class AttendanceRecordInline(TardyNoShowRecordInline):
@@ -430,6 +461,23 @@ class AttendanceRecordAdmin(AuditStampAdminMixin, WorkerRelatedAdmin):
     date_hierarchy = "record_date"
     autocomplete_fields = ("worker",)
     readonly_fields = ("term", "occurrence_display", "created_at")
+    change_list_template = "admin/workers/attendancerecord/change_list.html"
+    actions_on_top = True
+    actions_on_bottom = False
+
+    class Media:
+        js = ("admin/js/actions.js", "js/attendance-delete-bar.js")
+
+    def get_actions(self, request):
+        if not self.has_delete_permission(request):
+            return {}
+        actions = super().get_actions(request)
+        return {name: func for name, func in actions.items() if name == "delete_selected"}
+
+    def change_list(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["has_delete_permission"] = self.has_delete_permission(request)
+        return super().change_list(request, extra_context)
 
     @admin.display(description="Record")
     def occurrence_display(self, obj):

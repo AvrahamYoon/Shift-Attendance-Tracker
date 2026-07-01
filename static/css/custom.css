@@ -127,3 +127,27 @@
     font-weight: 700;
     margin-left: 0.5rem;
 }
+
+/* Attendance changelist: floating delete dock */
+.attendance-delete-dock {
+    min-width: 12rem;
+}
+
+.attendance-delete-btn {
+    display: inline-block;
+    padding: 0.45rem 1rem;
+    border-radius: 6px;
+    border: 1px solid #b91c1c;
+    background: #dc2626;
+    color: #fff;
+    cursor: pointer;
+}
+
+.attendance-delete-btn:hover {
+    background: #b91c1c;
+}
+
+.attendance-delete-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}

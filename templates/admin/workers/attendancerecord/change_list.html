@@ -1,0 +1,28 @@
+{% extends "admin/change_list.html" %}
+{% load i18n unfold_list %}
+
+{% block result_list %}
+    {% if action_form and has_delete_permission %}
+        <div
+            id="attendance-delete-dock"
+            class="attendance-delete-dock bottom-4 right-4 hidden group-has-[input.action-select:checked]:flex fixed gap-3 items-center px-4 py-3 z-50 shadow-lg rounded-default border border-base-200 dark:border-base-700 bg-white dark:bg-base-900"
+        >
+            <span
+                class="action-counter text-sm font-medium text-base-600 dark:text-base-300"
+                data-actions-icnt="{{ cl.result_list|length }}"
+            >
+                {% translate "0 of 0 selected" %}
+            </span>
+            <button
+                type="submit"
+                class="attendance-delete-btn font-semibold"
+                name="action"
+                value="delete_selected"
+            >
+                {% translate "Delete" %}
+            </button>
+        </div>
+    {% endif %}
+
+    {% unfold_result_list cl %}
+{% endblock %}
