@@ -1,5 +1,159 @@
 /* Small tweaks on top of django-unfold */
 
+/* ── Admin polish (background + cards only; no blur on text) ── */
+
+body:not(.home-page):not(.login)::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse 75% 55% at 0% 0%, color-mix(in oklch, var(--color-primary-200) 65%, transparent), transparent 50%),
+        radial-gradient(ellipse 60% 45% at 100% 100%, color-mix(in oklch, var(--color-primary-300) 45%, transparent), transparent 50%),
+        linear-gradient(165deg, var(--color-base-50), color-mix(in oklch, var(--color-primary-50) 50%, var(--color-base-50)));
+}
+
+.dark body:not(.home-page):not(.login)::before {
+    background:
+        radial-gradient(ellipse 75% 55% at 0% 0%, color-mix(in oklch, var(--color-primary-800) 45%, transparent), transparent 50%),
+        radial-gradient(ellipse 60% 45% at 100% 100%, color-mix(in oklch, var(--color-primary-900) 35%, transparent), transparent 50%),
+        linear-gradient(165deg, var(--color-base-950, var(--color-base-900)), var(--color-base-900));
+}
+
+#nav-sidebar {
+    box-shadow: 2px 0 20px rgb(15 23 42 / 0.05);
+}
+
+.dark #nav-sidebar {
+    box-shadow: 2px 0 24px rgb(0 0 0 / 0.2);
+}
+
+.admin-welcome-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+    padding: 1.35rem 1.5rem;
+    border-radius: calc(var(--border-radius, 8px) + 2px);
+    border: 1px solid color-mix(in oklch, var(--color-primary-300) 35%, var(--color-base-200));
+    background: linear-gradient(
+        135deg,
+        color-mix(in oklch, var(--color-primary-50) 80%, #fff),
+        color-mix(in oklch, var(--color-primary-100) 40%, #fff)
+    );
+    box-shadow: 0 8px 28px color-mix(in oklch, var(--color-primary-500) 12%, transparent);
+}
+
+.dark .admin-welcome-banner {
+    border-color: color-mix(in oklch, var(--color-primary-700) 40%, var(--color-base-800));
+    background: linear-gradient(
+        135deg,
+        color-mix(in oklch, var(--color-primary-950, var(--color-primary-900)) 60%, var(--color-base-900)),
+        var(--color-base-900)
+    );
+    box-shadow: 0 8px 28px rgb(0 0 0 / 0.25);
+}
+
+.admin-welcome-banner h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-primary-800);
+    margin-bottom: 0.25rem;
+}
+
+.dark .admin-welcome-banner h2 {
+    color: var(--color-primary-200);
+}
+
+.admin-welcome-banner p {
+    font-size: 0.88rem;
+    color: var(--color-base-600);
+    line-height: 1.5;
+}
+
+.dark .admin-welcome-banner p {
+    color: var(--color-base-400);
+}
+
+.admin-welcome-banner__icon {
+    flex-shrink: 0;
+    font-size: 2.75rem !important;
+    color: var(--color-primary-500);
+    opacity: 0.85;
+}
+
+.dashboard-app-card {
+    background: #fff !important;
+    border: 1px solid var(--color-base-200);
+    box-shadow: 0 4px 20px rgb(15 23 42 / 0.06);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.dashboard-app-card:hover {
+    box-shadow: 0 10px 32px rgb(15 23 42 / 0.09);
+    transform: translateY(-2px);
+}
+
+.dark .dashboard-app-card {
+    background: var(--color-base-900) !important;
+    border-color: var(--color-base-800);
+    box-shadow: 0 4px 20px rgb(0 0 0 / 0.22);
+}
+
+.dark .dashboard-app-card:hover {
+    box-shadow: 0 10px 32px rgb(0 0 0 / 0.32);
+}
+
+.dashboard-app-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding-left: 0.7rem;
+    border-left: 3px solid var(--color-primary-500);
+}
+
+.dashboard-app-title a {
+    color: var(--color-primary-700) !important;
+    text-decoration: none;
+}
+
+.dashboard-app-title a:hover {
+    color: var(--color-primary-800) !important;
+}
+
+.dark .dashboard-app-title a {
+    color: var(--color-primary-300) !important;
+}
+
+.dashboard-app-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.dashboard-app-table tbody tr:hover {
+    background: var(--color-primary-50) !important;
+}
+
+.dark .dashboard-app-table tbody tr:hover {
+    background: color-mix(in oklch, var(--color-primary-900) 35%, var(--color-base-900)) !important;
+}
+
+#result_list tbody tr {
+    transition: background-color 0.12s ease;
+}
+
+#result_list tbody tr:hover td,
+#result_list tbody tr:hover th {
+    background: var(--color-primary-50);
+}
+
+.dark #result_list tbody tr:hover td,
+.dark #result_list tbody tr:hover th {
+    background: color-mix(in oklch, var(--color-primary-900) 30%, var(--color-base-900));
+}
+
 #changelist-filter {
     top: 1rem;
 }
@@ -129,6 +283,7 @@
 }
 
 /* Attendance changelist: floating delete dock */
+
 .attendance-delete-dock {
     min-width: 12rem;
 }

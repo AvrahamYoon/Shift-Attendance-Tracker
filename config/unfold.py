@@ -9,7 +9,7 @@ UNFOLD = {
     "SITE_SYMBOL": "fact_check",
     "SHOW_HISTORY": True,
     "SHOW_BACK_BUTTON": True,
-    "BORDER_RADIUS": "8px",
+    "BORDER_RADIUS": "10px",
     "COLORS": {
         "primary": {
             "50": "oklch(97.4% .014 244.7)",
