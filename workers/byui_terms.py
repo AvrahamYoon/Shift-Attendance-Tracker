@@ -23,6 +23,11 @@ BYUI_FULL_SEMESTERS = (
         "end_date": date(2026, 7, 22),
     },
     {
+        "name": "Summer 2026",
+        "start_date": date(2026, 7, 27),
+        "end_date": date(2026, 9, 9),
+    },
+    {
         "name": "Fall 2026",
         "start_date": date(2026, 9, 14),
         "end_date": date(2026, 12, 16),

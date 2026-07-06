@@ -94,13 +94,13 @@ On **Attendance** list: select rows → **Delete** button appears bottom-right (
 
 ## BYUI academic terms
 
-Terms follow the [BYU-Idaho academic calendar](https://www.byui.edu/academic-calendar/) (full semester: Fall, Winter, Spring).
+Terms follow the [BYU-Idaho academic calendar](https://www.byui.edu/academic-calendar/) (Fall, Winter, Spring, and Summer Session when applicable).
 
 ```powershell
 .\.venv\Scripts\python manage.py sync_byui_terms
 ```
 
-Example: **Winter 2026** = Jan 7 – Apr 9, 2026; **Spring 2026** = Apr 20 – Jul 22, 2026.
+Example: **Winter 2026** = Jan 7 – Apr 9, 2026; **Spring 2026** = Apr 20 – Jul 22, 2026; **Summer 2026** = Jul 27 – Sep 9, 2026.
 
 Directors can also edit terms under **Workers → Terms**.
 
