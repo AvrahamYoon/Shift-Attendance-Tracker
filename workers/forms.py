@@ -7,6 +7,16 @@ from workers.attendance import resolve_term_for_date
 from workers.models import AttendanceCategory, AttendanceRecord, Note, Worker
 
 
+def _require_term_for_date(record_date):
+    """Validate record_date falls in a BYUI term; re-raise for forms."""
+    try:
+        return resolve_term_for_date(record_date)
+    except ValidationError as exc:
+        if hasattr(exc, "message_dict"):
+            raise ValidationError(exc.message_dict) from exc
+        raise ValidationError({"record_date": exc.messages}) from exc
+
+
 class BuildingScopedModelForm(forms.ModelForm):
     """Limit building choices to the current user's accessible buildings."""
 
@@ -65,25 +75,45 @@ class WorkerScopedModelForm(BuildingScopedModelForm):
         return worker
 
 
+class WorkerForm(BuildingScopedModelForm):
+    class Meta:
+        model = Worker
+        fields = (
+            "name",
+            "i_number",
+            "phone",
+            "building",
+            "shift",
+            "term_status",
+            "status",
+        )
+
+
 class AttendanceRecordForm(WorkerScopedModelForm):
     class Meta:
         model = AttendanceRecord
-        fields = ("worker", "category", "record_date")
+        fields = ("worker", "category", "record_date", "record_time")
         widgets = {
             "record_date": forms.DateInput(attrs={"type": "date"}),
+            "record_time": forms.TimeInput(attrs={"type": "time"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["record_date"].required = False
         self.fields["record_date"].help_text = "Optional — defaults to today."
+        self.fields["record_time"].required = False
+        self.fields["record_time"].help_text = (
+            "Optional — e.g. arrival time (tardy) or when noted."
+        )
         if not self.instance.pk and not self.initial.get("category"):
             self.initial.setdefault("category", AttendanceCategory.ABSENCE)
 
     def clean_record_date(self):
         value = self.cleaned_data.get("record_date")
         if not value:
-            return timezone.localdate()
+            value = timezone.localdate()
+        _require_term_for_date(value)
         return value
 
     def clean(self):
@@ -96,10 +126,7 @@ class AttendanceRecordForm(WorkerScopedModelForm):
             and category == AttendanceCategory.ABSENCE
             and record_date
         ):
-            try:
-                term = resolve_term_for_date(record_date)
-            except ValidationError:
-                return cleaned
+            term = _require_term_for_date(record_date)
             duplicate = AttendanceRecord.objects.filter(
                 worker=worker,
                 term=term,
@@ -117,15 +144,18 @@ class AttendanceRecordForm(WorkerScopedModelForm):
 class AbsenceRecordForm(forms.ModelForm):
     class Meta:
         model = AttendanceRecord
-        fields = ("record_date",)
+        fields = ("record_date", "record_time")
         widgets = {
             "record_date": forms.DateInput(attrs={"type": "date"}),
+            "record_time": forms.TimeInput(attrs={"type": "time"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["record_date"].required = False
         self.fields["record_date"].help_text = "One absence per day — duplicates are not counted."
+        self.fields["record_time"].required = False
+        self.fields["record_time"].help_text = "Optional — e.g. shift start or when noted."
         if not self.instance.pk:
             self.instance.category = AttendanceCategory.ABSENCE
 
@@ -133,23 +163,19 @@ class AbsenceRecordForm(forms.ModelForm):
         value = self.cleaned_data.get("record_date")
         if not value:
             value = timezone.localdate()
+        term = _require_term_for_date(value)
         worker = self.instance.worker_id or getattr(self.instance.worker, "pk", None)
         if worker:
-            try:
-                term = self.instance.term_id or resolve_term_for_date(value)
-            except ValidationError:
-                term = None
-            if term:
-                duplicate = AttendanceRecord.objects.filter(
-                    worker_id=worker,
-                    term_id=term.pk if hasattr(term, "pk") else term,
-                    category=AttendanceCategory.ABSENCE,
-                    record_date=value,
-                )
-                if self.instance.pk:
-                    duplicate = duplicate.exclude(pk=self.instance.pk)
-                if duplicate.exists():
-                    raise ValidationError("This worker already has an absence on this date.")
+            duplicate = AttendanceRecord.objects.filter(
+                worker_id=worker,
+                term_id=term.pk,
+                category=AttendanceCategory.ABSENCE,
+                record_date=value,
+            )
+            if self.instance.pk:
+                duplicate = duplicate.exclude(pk=self.instance.pk)
+            if duplicate.exists():
+                raise ValidationError("This worker already has an absence on this date.")
         return value
 
 

@@ -115,6 +115,11 @@ class AttendanceRecord(models.Model):
         blank=True,
         help_text="Leave blank when recording — defaults to today (Mountain Time).",
     )
+    record_time = models.TimeField(
+        blank=True,
+        null=True,
+        help_text="Optional — e.g. arrival time for a tardy, or when the absence was noted.",
+    )
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -134,6 +139,10 @@ class AttendanceRecord(models.Model):
 
     def clean(self):
         super().clean()
+        if self.record_date:
+            from workers.attendance import resolve_term_for_date
+
+            self.term = resolve_term_for_date(self.record_date)
         if (
             self.category == AttendanceCategory.ABSENCE
             and self.worker_id
@@ -161,10 +170,9 @@ class AttendanceRecord(models.Model):
     def save(self, *args, **kwargs):
         if not self.record_date:
             self.record_date = timezone.localdate()
-        if not self.term_id:
-            from workers.attendance import resolve_term_for_date
+        from workers.attendance import resolve_term_for_date
 
-            self.term = resolve_term_for_date(self.record_date)
+        self.term = resolve_term_for_date(self.record_date)
         super().save(*args, **kwargs)
 
 

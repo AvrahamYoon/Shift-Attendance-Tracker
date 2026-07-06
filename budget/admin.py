@@ -1,7 +1,9 @@
 from django.contrib import admin
+from django.core.exceptions import PermissionDenied
 
 from budget.models import Budget
 from config.admin_mixins import AuditStampAdminMixin, BudgetAdmin
+from config.permissions import filter_buildings, user_can_access_building
 
 
 @admin.register(Budget)
@@ -34,3 +36,20 @@ class BudgetModelAdmin(AuditStampAdminMixin, BudgetAdmin):
         variance = obj.headcount_variance
         prefix = "+" if variance > 0 else ""
         return f"{prefix}{variance}"
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "building":
+            from buildings.models import Building
+
+            kwargs["queryset"] = filter_buildings(
+                Building.objects.order_by("name"),
+                request.user,
+            )
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        if not user_can_access_building(request.user, obj.building):
+            raise PermissionDenied(
+                "You do not have permission to manage budgets for this building."
+            )
+        super().save_model(request, obj, form, change)

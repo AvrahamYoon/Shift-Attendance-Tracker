@@ -2,10 +2,14 @@
 {% load i18n unfold_list %}
 
 {% block result_list %}
+    {% unfold_result_list cl %}
+
     {% if action_form and has_delete_permission %}
         <div
             id="attendance-delete-dock"
-            class="attendance-delete-dock bottom-4 right-4 hidden group-has-[input.action-select:checked]:flex fixed gap-3 items-center px-4 py-3 z-50 shadow-lg rounded-default border border-base-200 dark:border-base-700 bg-white dark:bg-base-900"
+            class="attendance-delete-dock fixed bottom-4 right-4 z-[100] hidden items-center gap-3 px-4 py-3 shadow-lg rounded-default border border-base-200 dark:border-base-700 bg-white dark:bg-base-900"
+            role="region"
+            aria-label="{% translate 'Bulk delete' %}"
         >
             <span
                 class="action-counter text-sm font-medium text-base-600 dark:text-base-300"
@@ -23,6 +27,4 @@
             </button>
         </div>
     {% endif %}
-
-    {% unfold_result_list cl %}
 {% endblock %}

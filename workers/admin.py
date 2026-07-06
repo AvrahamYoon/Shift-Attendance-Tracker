@@ -27,7 +27,7 @@ from workers.attendance import (
     resolve_term_for_date,
     summary_overall_status,
 )
-from workers.forms import AbsenceRecordForm, AttendanceRecordForm, NoteForm
+from workers.forms import AbsenceRecordForm, AttendanceRecordForm, NoteForm, WorkerForm
 from workers.models import AttendanceCategory, AttendanceRecord, MonthlyScore, Note, Term, Worker
 
 INLINE_AUDIT_FIELDS = {
@@ -138,14 +138,14 @@ class AbsenceRecordInline(AttendanceInlineMixin, InlineAuditStampMixin, TabularI
     verbose_name_plural = "Absence days"
     extra = 1
     can_delete = False
-    fields = ("record_date", "occurrence_display", "inline_delete_link", "created_at")
+    fields = ("record_date", "record_time", "occurrence_display", "inline_delete_link", "created_at")
     readonly_fields = ("occurrence_display", "inline_delete_link", "created_at")
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.filter(category=AttendanceCategory.ABSENCE)
 
-    @admin.display(description="Day")
+    @admin.display(description="When")
     def occurrence_display(self, obj):
         if not obj.pk:
             return "—"
@@ -170,14 +170,14 @@ class TardyNoShowRecordInline(AttendanceInlineMixin, InlineAuditStampMixin, Tabu
     verbose_name_plural = "Tardy / No show"
     extra = 0
     can_delete = False
-    fields = ("category", "record_date", "occurrence_display", "inline_delete_link", "created_at")
+    fields = ("category", "record_date", "record_time", "occurrence_display", "inline_delete_link", "created_at")
     readonly_fields = ("occurrence_display", "inline_delete_link", "created_at")
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.exclude(category=AttendanceCategory.ABSENCE)
 
-    @admin.display(description="#")
+    @admin.display(description="When")
     def occurrence_display(self, obj):
         if not obj.pk:
             return "—"
@@ -228,6 +228,8 @@ class MonthlyScoreInline(InlineAuditStampMixin, TabularInline):
 
 @admin.register(Worker)
 class WorkerModelAdmin(WorkerAdmin):
+    form = WorkerForm
+
     class Media:
         css = {"all": ("css/custom.css",)}
 
@@ -389,11 +391,19 @@ class WorkerModelAdmin(WorkerAdmin):
         return supervisor.get_full_name() or supervisor.username if supervisor else "—"
 
     def save_model(self, request, obj, form, change):
-        if not change and request.user.role == "supervisor":
+        if request.user.role == Role.SUPERVISOR:
             if not user_can_access_building(request.user, obj.building):
                 raise PermissionDenied(
                     "You do not have permission to assign workers to this building."
                 )
+            if change:
+                original = Worker.objects.filter(pk=obj.pk).first()
+                if original and not user_can_access_building(
+                    request.user, original.building
+                ):
+                    raise PermissionDenied(
+                        "You do not have permission to edit this worker."
+                    )
         super().save_model(request, obj, form, change)
 
     def save_formset(self, request, form, formset, change):
@@ -429,6 +439,16 @@ class WorkerModelAdmin(WorkerAdmin):
     def get_readonly_fields(self, request, obj=None):
         return list(super().get_readonly_fields(request, obj))
 
+    def get_form(self, request, obj=None, **kwargs):
+        user = request.user
+
+        class RequestWorkerForm(WorkerForm):
+            def __init__(self, *args, **kw):
+                super().__init__(*args, user=user, **kw)
+
+        kwargs["form"] = RequestWorkerForm
+        return super().get_form(request, obj, **kwargs)
+
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "building":
             from buildings.models import Building
@@ -449,15 +469,16 @@ class AttendanceRecordAdmin(AuditStampAdminMixin, WorkerRelatedAdmin):
     }
     form = AttendanceRecordForm
     audit_fields = ("recorded_by",)
-    fields = ("worker", "category", "record_date")
+    fields = ("worker", "category", "record_date", "record_time")
     add_fieldsets = (
         (
             None,
             {
-                "fields": ("worker", "category", "record_date"),
+                "fields": ("worker", "category", "record_date", "record_time"),
                 "description": (
                     "Select the student employee first. Absences count by day "
-                    "(one record per date)."
+                    "(one record per date). Add a time for tardies or optional "
+                    "absence notes."
                 ),
             },
         ),
@@ -469,6 +490,7 @@ class AttendanceRecordAdmin(AuditStampAdminMixin, WorkerRelatedAdmin):
         "term_limit_status",
         "occurrence_display",
         "record_date",
+        "record_time",
         "recorded_by",
         "created_at",
     )
@@ -478,6 +500,7 @@ class AttendanceRecordAdmin(AuditStampAdminMixin, WorkerRelatedAdmin):
     autocomplete_fields = ("worker",)
     readonly_fields = ("term", "occurrence_display", "created_at")
     change_list_template = "admin/workers/attendancerecord/change_list.html"
+    actions = ("delete_selected",)
     actions_on_top = True
     actions_on_bottom = False
 

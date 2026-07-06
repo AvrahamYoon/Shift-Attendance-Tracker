@@ -16,11 +16,15 @@ MANAGER_BUDGET_ACCESS = ("view", "add", "change")
 
 
 def staff_with_role(request):
-    return (
-        request.user.is_active
-        and request.user.is_staff
-        and getattr(request.user, "role", None)
-        in (Role.DIRECTOR, Role.MANAGER, Role.SUPERVISOR)
+    user = request.user
+    if not user.is_active or not user.is_staff:
+        return False
+    if user.is_superuser:
+        return True
+    return getattr(user, "role", None) in (
+        Role.DIRECTOR,
+        Role.MANAGER,
+        Role.SUPERVISOR,
     )
 
 
@@ -90,6 +94,8 @@ class RoleFilteredAdminMixin:
         return qs
 
     def _role_allows(self, request, action):
+        if request.user.is_superuser:
+            return action in FULL_ACCESS
         allowed = self.role_permissions.get(request.user.role, ())
         return action in allowed
 

@@ -286,6 +286,11 @@ body:not(.home-page):not(.login)::before {
 
 .attendance-delete-dock {
     min-width: 12rem;
+    box-shadow: 0 12px 40px rgb(15 23 42 / 0.15);
+}
+
+.dark .attendance-delete-dock {
+    box-shadow: 0 12px 40px rgb(0 0 0 / 0.4);
 }
 
 .attendance-delete-btn {

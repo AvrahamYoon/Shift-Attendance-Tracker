@@ -123,7 +123,7 @@ def occurrence_number(record):
         worker_id=record.worker_id,
         term_id=record.term_id,
         category=record.category,
-    ).order_by("record_date", "created_at", "pk")
+    ).order_by("record_date", "record_time", "created_at", "pk")
     if record.pk:
         ids = list(ordering.values_list("pk", flat=True))
         if record.pk in ids:
@@ -131,15 +131,27 @@ def occurrence_number(record):
     return ordering.count() + 1
 
 
+def _format_record_time(record_time):
+    if not record_time:
+        return ""
+    hour = record_time.strftime("%I").lstrip("0") or "12"
+    return f" at {hour}:{record_time.strftime('%M %p')}"
+
+
 def occurrence_label(record):
     number = occurrence_number(record)
+    time_part = _format_record_time(record.record_time)
+
     if record.category == ABSENCE_CATEGORY and record.record_date:
         if number is None:
-            return f"{record.get_category_display()} ({record.record_date})"
-        return f"Absence day {number} ({record.record_date})"
+            return f"{record.get_category_display()} ({record.record_date}{time_part})"
+        return f"Absence day {number} ({record.record_date}{time_part})"
     if number is None:
+        if record.record_date:
+            return f"{record.get_category_display()} ({record.record_date}{time_part})"
         return record.get_category_display()
-    return f"{record.get_category_display()} #{number}"
+    date_part = f" — {record.record_date}" if record.record_date else ""
+    return f"{record.get_category_display()} #{number}{date_part}{time_part}"
 
 
 def projected_count_after_add(worker, term, category, record_date=None):

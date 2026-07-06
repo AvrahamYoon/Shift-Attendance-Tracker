@@ -6,29 +6,47 @@
             return;
         }
 
-        // Unfold also renders the default action dropdown; hide it on this page.
         const defaultActions = form.querySelector("#changelist-actions-wrapper");
         if (defaultActions) {
-            defaultActions.remove();
+            defaultActions.closest("[class*='group-has-']")?.remove();
         }
 
         const counter = dock.querySelector(".action-counter");
         const total = counter ? Number(counter.dataset.actionsIcnt || 0) : 0;
 
+        function selectedCount() {
+            return form.querySelectorAll("input.action-select:checked").length;
+        }
+
         function updateCounter() {
             if (!counter) {
                 return;
             }
-            const selected = form.querySelectorAll("input.action-select:checked").length;
+            const selected = selectedCount();
             counter.textContent = selected + " of " + total + " selected";
         }
 
+        function syncDock() {
+            const selected = selectedCount();
+            const show = selected > 0;
+            dock.classList.toggle("hidden", !show);
+            dock.classList.toggle("flex", show);
+            updateCounter();
+        }
+
         form.addEventListener("change", function (event) {
-            if (event.target && event.target.matches("input.action-select")) {
-                updateCounter();
+            const target = event.target;
+            if (!target) {
+                return;
+            }
+            if (
+                target.matches("input.action-select") ||
+                target.id === "action-toggle"
+            ) {
+                syncDock();
             }
         });
 
-        updateCounter();
+        syncDock();
     });
 })();
