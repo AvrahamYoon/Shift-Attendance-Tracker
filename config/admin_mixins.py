@@ -129,7 +129,7 @@ class BuildingAdmin(RoleFilteredAdminMixin, ModelAdmin):
     permission_filter = filter_buildings
     role_permissions = {
         Role.DIRECTOR: FULL_ACCESS,
-        Role.MANAGER: VIEW_ONLY,
+        Role.MANAGER: ("view", "add", "change"),
         Role.SUPERVISOR: VIEW_ONLY,
     }
 

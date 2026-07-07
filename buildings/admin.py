@@ -1,9 +1,14 @@
 from django.contrib import admin
+from django.core.exceptions import PermissionDenied
 
-from accounts.models import Role
+from accounts.models import Role, User
 from buildings.models import Building
 from config.admin_mixins import BuildingAdmin
-from config.permissions import filter_supervisors
+from config.permissions import (
+    filter_supervisors,
+    has_director_access,
+    user_can_access_building,
+)
 
 
 @admin.register(Building)
@@ -19,20 +24,34 @@ class BuildingModelAdmin(BuildingAdmin):
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "supervisor":
-            from accounts.models import User
-
             kwargs["queryset"] = filter_supervisors(
-                User.objects.order_by("username"),
+                User.objects.filter(role=Role.SUPERVISOR).order_by("username"),
                 request.user,
-            ).filter(role=Role.SUPERVISOR)
-            if request.user.role == Role.DIRECTOR:
-                kwargs["queryset"] = User.objects.filter(role=Role.SUPERVISOR).order_by(
-                    "username"
-                )
+            )
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
+    def has_delete_permission(self, request, obj=None):
+        return has_director_access(request.user)
+
     def save_model(self, request, obj, form, change):
+        if obj.supervisor_id:
+            if obj.supervisor.role != Role.SUPERVISOR:
+                raise PermissionDenied(
+                    "Building supervisor must have the Supervisor role."
+                )
+            if request.user.role == Role.MANAGER:
+                if obj.supervisor.manager_id != request.user.pk:
+                    raise PermissionDenied(
+                        "Managers may only assign their own supervisors to a building."
+                    )
+        if (
+            change
+            and request.user.role == Role.MANAGER
+            and not has_director_access(request.user)
+        ):
+            original = Building.objects.filter(pk=obj.pk).first()
+            if original and not user_can_access_building(request.user, original):
+                raise PermissionDenied(
+                    "You do not have permission to edit this building."
+                )
         super().save_model(request, obj, form, change)
-        if obj.supervisor_id and obj.supervisor.role != Role.SUPERVISOR:
-            obj.supervisor = None
-            obj.save(update_fields=["supervisor"])
