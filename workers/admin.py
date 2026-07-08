@@ -9,6 +9,7 @@ from unfold.admin import ModelAdmin, TabularInline
 from accounts.models import Role
 from config.admin_mixins import (
     AuditStampAdminMixin,
+    DeleteDockAdminMixin,
     FULL_ACCESS,
     InlineAuditStampMixin,
     NoteAdmin,
@@ -109,7 +110,7 @@ class AttendanceInlineMixin:
 
 
 @admin.register(Term)
-class TermAdmin(RoleFilteredAdminMixin, ModelAdmin):
+class TermAdmin(DeleteDockAdminMixin, RoleFilteredAdminMixin, ModelAdmin):
     permission_filter = None
     role_permissions = {
         Role.DIRECTOR: ("view", "add", "change", "delete"),
@@ -227,11 +228,12 @@ class MonthlyScoreInline(InlineAuditStampMixin, TabularInline):
 
 
 @admin.register(Worker)
-class WorkerModelAdmin(WorkerAdmin):
+class WorkerModelAdmin(DeleteDockAdminMixin, WorkerAdmin):
     form = WorkerForm
 
     class Media:
         css = {"all": ("css/custom.css",)}
+        js = ("admin/js/actions.js", "js/bulk-delete-dock.js")
 
     list_display = (
         "limit_alert",
@@ -461,7 +463,7 @@ class WorkerModelAdmin(WorkerAdmin):
 
 
 @admin.register(AttendanceRecord)
-class AttendanceRecordAdmin(AuditStampAdminMixin, WorkerRelatedAdmin):
+class AttendanceRecordAdmin(DeleteDockAdminMixin, AuditStampAdminMixin, WorkerRelatedAdmin):
     role_permissions = {
         Role.DIRECTOR: FULL_ACCESS,
         Role.MANAGER: VIEW_ONLY,
@@ -499,24 +501,6 @@ class AttendanceRecordAdmin(AuditStampAdminMixin, WorkerRelatedAdmin):
     date_hierarchy = "record_date"
     autocomplete_fields = ("worker",)
     readonly_fields = ("term", "occurrence_display", "created_at")
-    change_list_template = "admin/workers/attendancerecord/change_list.html"
-    actions = ("delete_selected",)
-    actions_on_top = True
-    actions_on_bottom = False
-
-    class Media:
-        js = ("admin/js/actions.js", "js/attendance-delete-bar.js")
-
-    def get_actions(self, request):
-        if not self.has_delete_permission(request):
-            return {}
-        actions = super().get_actions(request)
-        return {name: func for name, func in actions.items() if name == "delete_selected"}
-
-    def change_list(self, request, extra_context=None):
-        extra_context = extra_context or {}
-        extra_context["has_delete_permission"] = self.has_delete_permission(request)
-        return super().change_list(request, extra_context)
 
     @admin.display(description="Record")
     def occurrence_display(self, obj):
@@ -578,7 +562,7 @@ class AttendanceRecordAdmin(AuditStampAdminMixin, WorkerRelatedAdmin):
 
 
 @admin.register(Note)
-class NoteModelAdmin(AuditStampAdminMixin, NoteAdmin):
+class NoteModelAdmin(DeleteDockAdminMixin, AuditStampAdminMixin, NoteAdmin):
     audit_fields = ("author",)
     form = NoteForm
     fields = ("building", "worker", "content")
@@ -624,7 +608,7 @@ class NoteModelAdmin(AuditStampAdminMixin, NoteAdmin):
 
 
 @admin.register(MonthlyScore)
-class MonthlyScoreAdmin(AuditStampAdminMixin, WorkerRelatedAdmin):
+class MonthlyScoreAdmin(DeleteDockAdminMixin, AuditStampAdminMixin, WorkerRelatedAdmin):
     audit_fields = ("supervisor",)
     list_display = ("worker", "year", "month", "score", "supervisor")
     list_filter = ("year", "month", "worker__building")

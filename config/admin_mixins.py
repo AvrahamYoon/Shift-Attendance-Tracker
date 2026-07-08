@@ -75,6 +75,33 @@ class InlineAuditStampMixin:
         return readonly
 
 
+class DeleteDockAdminMixin:
+    """Shared floating Delete dock for changelists (Attendance, Buildings, …)."""
+
+    change_list_template = "admin/bulk_delete_change_list.html"
+    actions = ("delete_selected",)
+    actions_on_top = True
+    actions_on_bottom = False
+
+    class Media:
+        js = ("admin/js/actions.js", "js/bulk-delete-dock.js")
+
+    def get_actions(self, request):
+        if not self.has_delete_permission(request):
+            return {}
+        actions = super().get_actions(request)
+        return {
+            name: func
+            for name, func in actions.items()
+            if name == "delete_selected"
+        }
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["has_delete_permission"] = self.has_delete_permission(request)
+        return super().changelist_view(request, extra_context)
+
+
 class RoleFilteredAdminMixin:
     """Role-based queryset filtering and admin permissions without Django perms."""
 

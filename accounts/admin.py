@@ -9,6 +9,7 @@ from accounts.forms import (
     ScopedUserChangeForm,
 )
 from accounts.models import Role, User
+from config.admin_mixins import DeleteDockAdminMixin
 from config.permissions import filter_supervisors, has_director_access
 
 # Fields that only a director may change on any user account.
@@ -71,7 +72,7 @@ READ_ONLY_USER_FIELDSETS = (
 
 
 @admin.register(User)
-class UserAdmin(BaseUserAdmin, ModelAdmin):
+class UserAdmin(DeleteDockAdminMixin, BaseUserAdmin, ModelAdmin):
     form = ScopedUserChangeForm
     list_display = (
         "username",
@@ -84,6 +85,9 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
     list_filter = ("role", "is_staff")
     search_fields = ("username", "first_name", "last_name", "email")
     filter_horizontal = ()
+
+    class Media:
+        js = ("admin/js/actions.js", "js/bulk-delete-dock.js")
 
     add_fieldsets = (
         (None, {"fields": ("username", "password1", "password2")}),

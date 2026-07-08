@@ -10,7 +10,7 @@ Internal Django app for **student employee work attendance** at BYU-Idaho (not c
 | UI | django-unfold (Admin) |
 | Database | SQLite |
 | Time zone | `America/Denver` (Mountain Time) |
-| Planned | WeasyPrint (PDF export), budget dashboard, audit log |
+| Planned | ReportLab (PDF export), budget dashboard, audit log |
 
 ## Apps
 
@@ -19,7 +19,7 @@ Internal Django app for **student employee work attendance** at BYU-Idaho (not c
 | `accounts` | Custom `User` — role, manager, supervisor assignment via buildings |
 | `buildings` | Work sites; each building has **one** supervisor |
 | `workers` | Students, attendance, BYUI terms, notes, monthly scores |
-| `budget` | Headcount budgets per building / period |
+| `budget` | Headcount budgets per building |
 | `config` | Settings, role permissions, Unfold navigation |
 
 ## Roles & access
@@ -88,9 +88,9 @@ Saving a record assigns the matching **Term** from the record date and shows **w
 - Columns: **Absences**, **Tardy**, **No show** with color badges (green / orange / red by usage).
 - **Alert** column when any category is over the term limit.
 
-### Deleting attendance
+### Deleting
 
-On **Attendance** list: select rows → **Delete** button appears bottom-right (requires delete permission).
+On list pages (Attendance, Buildings, Workers, Notes, Budgets): select rows → **Delete** appears above the bottom edge (requires delete permission).
 
 ## BYUI academic terms
 
@@ -133,5 +133,5 @@ Set **role** to `director` and assign buildings on the **Buildings** screen as n
 ## Roadmap
 
 1. Budget dashboard (quota vs actual headcount)
-2. PDF export (WeasyPrint)
+2. PDF export (ReportLab)
 3. Audit log and permission hardening

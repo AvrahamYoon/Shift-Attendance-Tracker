@@ -2,26 +2,25 @@
 {% load i18n unfold_list %}
 
 {% block result_list %}
+    {% include "unfold/helpers/change_list_actions.html" %}
     {% unfold_result_list cl %}
 
     {% if action_form and has_delete_permission %}
         <div
-            id="attendance-delete-dock"
-            class="attendance-delete-dock fixed bottom-4 right-4 z-[100] hidden items-center gap-3 px-4 py-3 shadow-lg rounded-default border border-base-200 dark:border-base-700 bg-white dark:bg-base-900"
+            id="bulk-delete-dock"
+            class="bulk-delete-dock hidden items-center gap-4"
             role="region"
             aria-label="{% translate 'Bulk delete' %}"
         >
             <span
-                class="action-counter text-sm font-medium text-base-600 dark:text-base-300"
+                class="action-counter text-sm text-base-500 dark:text-base-400"
                 data-actions-icnt="{{ cl.result_list|length }}"
             >
                 {% translate "0 of 0 selected" %}
             </span>
             <button
-                type="submit"
-                class="attendance-delete-btn font-semibold"
-                name="action"
-                value="delete_selected"
+                type="button"
+                class="bulk-delete-btn text-sm font-semibold"
             >
                 {% translate "Delete" %}
             </button>

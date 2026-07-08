@@ -2,25 +2,26 @@ from django.contrib import admin
 from django.core.exceptions import PermissionDenied
 
 from budget.models import Budget
-from config.admin_mixins import AuditStampAdminMixin, BudgetAdmin
+from config.admin_mixins import AuditStampAdminMixin, BudgetAdmin, DeleteDockAdminMixin
 from config.permissions import filter_buildings, user_can_access_building
 
 
 @admin.register(Budget)
-class BudgetModelAdmin(AuditStampAdminMixin, BudgetAdmin):
-    audit_fields = ("set_by",)
+class BudgetModelAdmin(DeleteDockAdminMixin, AuditStampAdminMixin, BudgetAdmin):
     list_display = (
-        "period",
         "building",
         "current_supervisor_display",
         "allocated_headcount",
         "actual_headcount_display",
         "variance_display",
         "set_by",
+        "updated_at",
     )
-    list_filter = ("period", "building")
+    list_filter = ("building",)
     search_fields = ("building__name",)
     autocomplete_fields = ("building",)
+    readonly_fields = ("set_by", "updated_at", "created_at")
+    fields = ("building", "allocated_headcount", "set_by", "updated_at", "created_at")
 
     @admin.display(description="Current supervisor")
     def current_supervisor_display(self, obj):
@@ -52,4 +53,6 @@ class BudgetModelAdmin(AuditStampAdminMixin, BudgetAdmin):
             raise PermissionDenied(
                 "You do not have permission to manage budgets for this building."
             )
-        super().save_model(request, obj, form, change)
+        obj.set_by = request.user
+        # Skip AuditStampAdminMixin so set_by always reflects the last editor.
+        super(AuditStampAdminMixin, self).save_model(request, obj, form, change)

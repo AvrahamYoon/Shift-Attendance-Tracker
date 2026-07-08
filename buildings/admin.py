@@ -3,7 +3,7 @@ from django.core.exceptions import PermissionDenied
 
 from accounts.models import Role, User
 from buildings.models import Building
-from config.admin_mixins import BuildingAdmin
+from config.admin_mixins import BuildingAdmin, DeleteDockAdminMixin
 from config.permissions import (
     filter_supervisors,
     has_director_access,
@@ -12,7 +12,7 @@ from config.permissions import (
 
 
 @admin.register(Building)
-class BuildingModelAdmin(BuildingAdmin):
+class BuildingModelAdmin(DeleteDockAdminMixin, BuildingAdmin):
     list_display = ("name", "address", "supervisor", "active_headcount_display")
     search_fields = ("name", "address", "supervisor__username")
     autocomplete_fields = ("supervisor",)

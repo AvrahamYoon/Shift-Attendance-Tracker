@@ -155,9 +155,8 @@ class Command(BaseCommand):
             (buildings["east"], 2),
             (buildings["west"], 2),
         ):
-            Budget.objects.get_or_create(
+            Budget.objects.update_or_create(
                 building=building,
-                period="2026-07",
                 defaults={
                     "allocated_headcount": headcount,
                     "set_by": manager,

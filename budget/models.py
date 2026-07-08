@@ -3,37 +3,27 @@ from django.db import models
 
 
 class Budget(models.Model):
-    building = models.ForeignKey(
+    building = models.OneToOneField(
         "buildings.Building",
         on_delete=models.CASCADE,
-        related_name="budgets",
+        related_name="budget",
         help_text="Headcount quota for this building.",
-    )
-    period = models.CharField(
-        max_length=7,
-        help_text='Budget period in YYYY-MM format, e.g. "2026-07".',
     )
     allocated_headcount = models.PositiveIntegerField()
     set_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="budgets_set",
-        help_text="Manager who set this quota.",
+        help_text="Manager who last set this quota.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["-period", "building"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["building", "period"],
-                name="unique_building_period_budget",
-            ),
-        ]
+        ordering = ["building"]
 
     def __str__(self):
-        return f"{self.building} — {self.period}: {self.allocated_headcount}"
+        return f"{self.building}: {self.allocated_headcount}"
 
     @property
     def current_supervisor(self):
