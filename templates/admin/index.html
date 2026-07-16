@@ -1,6 +1,6 @@
 {% extends 'admin/base.html' %}
 
-{% load i18n %}
+{% load i18n workers_admin %}
 
 {% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
 
@@ -9,6 +9,7 @@
 {% endblock %}
 
 {% block content %}
+    {% current_term_banner as current_term %}
     <div class="admin-welcome-banner">
         <div class="admin-welcome-banner__text">
             <h2>
@@ -18,7 +19,19 @@
                     {% translate "Welcome" %}
                 {% endif %}
             </h2>
-            <p>{% translate "Workers, attendance, notes, and budgets — organized by building and term." %}</p>
+            {% if current_term %}
+                <p class="admin-welcome-banner__term">
+                    <span class="material-symbols-outlined text-base align-middle">calendar_month</span>
+                    {% blocktranslate with name=current_term.name start=current_term.start_date end=current_term.end_date %}
+                        Current term: {{ name }} ({{ start }} – {{ end }})
+                    {% endblocktranslate %}
+                </p>
+                <p class="admin-welcome-banner__hint">
+                    {% translate "Dates between semesters count toward the previous term." %}
+                </p>
+            {% else %}
+                <p>{% translate "No BYUI term covers today. Run sync_byui_terms." %}</p>
+            {% endif %}
         </div>
         <span class="material-symbols-outlined admin-welcome-banner__icon" aria-hidden="true">fact_check</span>
     </div>

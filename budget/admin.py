@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.core.exceptions import PermissionDenied
+from django.utils.html import format_html
 
 from budget.models import Budget
 from config.admin_mixins import AuditStampAdminMixin, BudgetAdmin, DeleteDockAdminMixin
@@ -35,8 +36,22 @@ class BudgetModelAdmin(DeleteDockAdminMixin, AuditStampAdminMixin, BudgetAdmin):
     @admin.display(description="Variance")
     def variance_display(self, obj):
         variance = obj.headcount_variance
+        allocated = obj.allocated_headcount or 0
+        if variance > 0:
+            css = "budget-badge budget-badge--over"
+        elif allocated and variance == 0:
+            css = "budget-badge budget-badge--at"
+        elif allocated and abs(variance) > allocated / 2:
+            css = "budget-badge budget-badge--under"
+        else:
+            css = "budget-badge budget-badge--ok"
         prefix = "+" if variance > 0 else ""
-        return f"{prefix}{variance}"
+        return format_html(
+            '<span class="{}">{}{}</span>',
+            css,
+            prefix,
+            variance,
+        )
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "building":

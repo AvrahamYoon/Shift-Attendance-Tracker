@@ -1,5 +1,6 @@
 from django.templatetags.static import static
-from django.urls import reverse_lazy
+
+from config.navigation import get_sidebar_navigation
 
 UNFOLD = {
     "SITE_TITLE": "Shift Attendance",
@@ -28,62 +29,7 @@ UNFOLD = {
     "SIDEBAR": {
         "show_search": True,
         "show_all_applications": False,
-        "navigation": [
-            {
-                "title": "Daily operations",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Workers",
-                        "icon": "groups",
-                        "link": reverse_lazy("admin:workers_worker_changelist"),
-                    },
-                    {
-                        "title": "Attendance",
-                        "icon": "event_busy",
-                        "link": reverse_lazy(
-                            "admin:workers_attendancerecord_changelist"
-                        ),
-                    },
-                    {
-                        "title": "Notes",
-                        "icon": "sticky_note_2",
-                        "link": reverse_lazy("admin:workers_note_changelist"),
-                    },
-                    {
-                        "title": "Monthly scores",
-                        "icon": "grade",
-                        "link": reverse_lazy("admin:workers_monthlyscore_changelist"),
-                    },
-                ],
-            },
-            {
-                "title": "Organization",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Buildings",
-                        "icon": "apartment",
-                        "link": reverse_lazy("admin:buildings_building_changelist"),
-                    },
-                    {
-                        "title": "Budgets",
-                        "icon": "account_balance_wallet",
-                        "link": reverse_lazy("admin:budget_budget_changelist"),
-                    },
-                    {
-                        "title": "Terms",
-                        "icon": "calendar_month",
-                        "link": reverse_lazy("admin:workers_term_changelist"),
-                    },
-                    {
-                        "title": "Users",
-                        "icon": "manage_accounts",
-                        "link": reverse_lazy("admin:accounts_user_changelist"),
-                    },
-                ],
-            },
-        ],
+        "navigation": get_sidebar_navigation,
     },
     "STYLES": [
         lambda request: static("css/custom.css"),

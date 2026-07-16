@@ -31,12 +31,14 @@ def summary_overall_status(summary):
 
 
 def resolve_term_for_date(record_date):
+    """Resolve term for a date; gaps between semesters use the previous term."""
     term = Term.for_date(record_date)
     if term is None:
         raise ValidationError(
             {
                 "record_date": (
-                    "No BYUI semester covers this date. "
+                    "No BYUI semester is available for this date "
+                    "(before the earliest synced term). "
                     "Run: python manage.py sync_byui_terms"
                 )
             }

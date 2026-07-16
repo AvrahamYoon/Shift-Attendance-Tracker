@@ -55,45 +55,15 @@ def _term_summary_for_worker(obj):
 def _attendance_count_html(info):
     count = info["count"]
     limit = info["limit"]
-    base = (
-        "display:inline-block;padding:0.2rem 0.45rem;border-radius:4px;"
-        "font-weight:600;font-size:0.85rem;white-space:nowrap;"
-    )
     if info["exceeded"]:
-        return format_html(
-            '<span class="attendance-badge attendance-badge--over" '
-            'style="{}background:#fecaca;color:#991b1b;">'
-            "{}/{}</span>",
-            base,
-            count,
-            limit,
-        )
-    if info["at_limit"]:
-        return format_html(
-            '<span class="attendance-badge attendance-badge--at-limit" '
-            'style="{}background:#fef08a;color:#854d0e;">'
-            "{}/{}</span>",
-            base,
-            count,
-            limit,
-        )
-    if count > limit / 2:
-        return format_html(
-            '<span class="attendance-badge attendance-badge--over-half" '
-            'style="{}background:#fed7aa;color:#9a3412;">'
-            "{}/{}</span>",
-            base,
-            count,
-            limit,
-        )
-    return format_html(
-        '<span class="attendance-badge attendance-badge--ok" '
-        'style="{}background:#bbf7d0;color:#166534;">'
-        "{}/{}</span>",
-        base,
-        count,
-        limit,
-    )
+        css = "attendance-badge attendance-badge--over"
+    elif info["at_limit"]:
+        css = "attendance-badge attendance-badge--at-limit"
+    elif count > limit / 2:
+        css = "attendance-badge attendance-badge--over-half"
+    else:
+        css = "attendance-badge attendance-badge--ok"
+    return format_html('<span class="{}">{}/{}</span>', css, count, limit)
 
 
 def _attendance_limit_cell_html(summary, category_value):
@@ -158,7 +128,7 @@ class AbsenceRecordInline(AttendanceInlineMixin, InlineAuditStampMixin, TabularI
             return ""
         url = reverse("admin:workers_attendancerecord_delete", args=[obj.pk])
         return format_html(
-            '<a href="{}" style="color:#dc2626;font-weight:600;">Delete</a>',
+            '<a href="{}" class="inline-delete-link">Delete</a>',
             url,
         )
 
@@ -190,7 +160,7 @@ class TardyNoShowRecordInline(AttendanceInlineMixin, InlineAuditStampMixin, Tabu
             return ""
         url = reverse("admin:workers_attendancerecord_delete", args=[obj.pk])
         return format_html(
-            '<a href="{}" style="color:#dc2626;font-weight:600;">Delete</a>',
+            '<a href="{}" class="inline-delete-link">Delete</a>',
             url,
         )
 
@@ -286,21 +256,9 @@ class WorkerModelAdmin(DeleteDockAdminMixin, WorkerAdmin):
             return ""
         status = summary_overall_status(attendance_summary_for_term(obj, term))
         if status == "over":
-            return mark_safe(
-                '<span class="worker-over-limit-flag" '
-                'style="display:inline-block;background:#dc2626;color:#fff;'
-                "font-weight:800;padding:0.3rem 0.55rem;border-radius:6px;"
-                'font-size:0.7rem;letter-spacing:0.04em;text-transform:uppercase;'
-                'white-space:nowrap;">Over limit</span>'
-            )
+            return mark_safe('<span class="worker-over-limit-flag">Over limit</span>')
         if status == "at_limit":
-            return mark_safe(
-                '<span class="worker-at-limit-flag" '
-                'style="display:inline-block;background:#fef3c7;color:#92400e;'
-                "font-weight:700;padding:0.25rem 0.5rem;border-radius:6px;"
-                'font-size:0.7rem;letter-spacing:0.03em;text-transform:uppercase;'
-                'white-space:nowrap;">At limit</span>'
-            )
+            return mark_safe('<span class="worker-at-limit-flag">At limit</span>')
         return ""
 
     @admin.display(description="Absences")

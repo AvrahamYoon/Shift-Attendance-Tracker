@@ -38,9 +38,22 @@ class Term(models.Model):
 
     @classmethod
     def for_date(cls, record_date):
-        return (
+        """Return the term covering this date.
+
+        If the date falls in a gap between semesters (after one ends and
+        before the next starts), assign it to the previous term.
+        """
+        exact = (
             cls.objects.filter(start_date__lte=record_date, end_date__gte=record_date)
             .order_by("-start_date")
+            .first()
+        )
+        if exact:
+            return exact
+        # Gap fallback: most recently ended term before this date.
+        return (
+            cls.objects.filter(end_date__lt=record_date)
+            .order_by("-end_date")
             .first()
         )
 

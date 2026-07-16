@@ -77,6 +77,22 @@ body:not(.home-page):not(.login)::before {
     color: var(--color-base-400);
 }
 
+.admin-welcome-banner__term {
+    font-weight: 600 !important;
+    color: var(--color-primary-700) !important;
+    margin-top: 0.35rem;
+}
+
+.dark .admin-welcome-banner__term {
+    color: var(--color-primary-300) !important;
+}
+
+.admin-welcome-banner__hint {
+    font-size: 0.8rem !important;
+    margin-top: 0.15rem;
+    opacity: 0.9;
+}
+
 .admin-welcome-banner__icon {
     flex-shrink: 0;
     font-size: 2.75rem !important;
@@ -193,6 +209,47 @@ body:not(.home-page):not(.login)::before {
 .attendance-badge--at-limit {
     background: #fef08a;
     color: #854d0e;
+}
+
+.budget-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.budget-badge--over {
+    background: #fecaca;
+    color: #991b1b;
+}
+
+.budget-badge--at {
+    background: #fef08a;
+    color: #854d0e;
+}
+
+.budget-badge--under {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.budget-badge--ok {
+    background: #bbf7d0;
+    color: #166534;
+}
+
+.inline-delete-link {
+    color: #dc2626;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.inline-delete-link:hover {
+    color: #b91c1c;
+    text-decoration: underline;
 }
 
 .worker-over-limit-flag {

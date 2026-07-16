@@ -81,7 +81,9 @@ Password for all: `demo1234`
 | Tardy | 4 | Per record |
 | No show | 1 | Per record |
 
-Saving a record assigns the matching **Term** from the record date and shows **warnings** when limits are reached or exceeded (records are not blocked).
+Saving a record assigns the matching **Term** from the record date (gaps between
+semesters count toward the **previous** term) and shows **warnings** when limits
+are reached or exceeded (records are not blocked).
 
 ### Workers list
 
