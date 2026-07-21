@@ -1,0 +1,10 @@
+{% extends "admin/change_form_object_tools.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+    {% if export_worker_pdf_url %}
+        {% trans "Export PDF" as title %}
+        {% include "unfold/helpers/tab_action.html" with title=title link=export_worker_pdf_url icon="picture_as_pdf" %}
+    {% endif %}
+    {{ block.super }}
+{% endblock %}

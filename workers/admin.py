@@ -1,12 +1,14 @@
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied
-from django.urls import reverse
+from django.shortcuts import redirect
+from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from unfold.admin import ModelAdmin, TabularInline
 
 from accounts.models import Role
+from budget.models import Budget
 from config.admin_mixins import (
     AuditStampAdminMixin,
     DeleteDockAdminMixin,
@@ -18,7 +20,13 @@ from config.admin_mixins import (
     WorkerAdmin,
     WorkerRelatedAdmin,
 )
-from config.permissions import filter_buildings, filter_workers, user_can_access_building
+from config.permissions import (
+    filter_budgets,
+    filter_buildings,
+    filter_workers,
+    has_director_access,
+    user_can_access_building,
+)
 from workers.attendance import (
     DISPLAY_CATEGORIES,
     attendance_summary_for_term,
@@ -30,6 +38,12 @@ from workers.attendance import (
 )
 from workers.forms import AbsenceRecordForm, AttendanceRecordForm, NoteForm, WorkerForm
 from workers.models import AttendanceCategory, AttendanceRecord, MonthlyScore, Note, Term, Worker
+from workers.pdf_reports import (
+    build_term_attendance_pdf,
+    build_worker_pdf,
+    pdf_http_response,
+    safe_filename,
+)
 
 INLINE_AUDIT_FIELDS = {
     AttendanceRecord: "recorded_by",
@@ -197,6 +211,21 @@ class MonthlyScoreInline(InlineAuditStampMixin, TabularInline):
     fields = ("year", "month", "score")
 
 
+def _term_for_pdf_export(request):
+    term_id = request.GET.get("term")
+    if term_id:
+        return Term.objects.filter(pk=term_id).first()
+    return Term.current()
+
+
+def _export_pdf_url(name, request, *args):
+    url = reverse(name, args=args, current_app=admin.site.name)
+    term = _term_for_pdf_export(request)
+    if term:
+        return f"{url}?term={term.pk}"
+    return url
+
+
 @admin.register(Worker)
 class WorkerModelAdmin(DeleteDockAdminMixin, WorkerAdmin):
     form = WorkerForm
@@ -349,6 +378,86 @@ class WorkerModelAdmin(DeleteDockAdminMixin, WorkerAdmin):
     def current_supervisor_display(self, obj):
         supervisor = obj.current_supervisor
         return supervisor.get_full_name() or supervisor.username if supervisor else "—"
+
+    def get_urls(self):
+        urls = super().get_urls()
+        info = self.model._meta.app_label, self.model._meta.model_name
+        custom_urls = [
+            path(
+                "export-term-pdf/",
+                self.admin_site.admin_view(self.export_term_pdf_view),
+                name=f"{info[0]}_{info[1]}_export_term_pdf",
+            ),
+            path(
+                "<path:object_id>/export-pdf/",
+                self.admin_site.admin_view(self.export_worker_pdf_view),
+                name=f"{info[0]}_{info[1]}_export_pdf",
+            ),
+        ]
+        return custom_urls + urls
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["export_term_pdf_url"] = _export_pdf_url(
+            "admin:workers_worker_export_term_pdf",
+            request,
+        )
+        return super().changelist_view(request, extra_context)
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        if object_id and self.get_queryset(request).filter(pk=object_id).exists():
+            extra_context["export_worker_pdf_url"] = _export_pdf_url(
+                "admin:workers_worker_export_pdf",
+                request,
+                object_id,
+            )
+        return super().change_view(request, object_id, form_url, extra_context)
+
+    def export_term_pdf_view(self, request):
+        term = _term_for_pdf_export(request)
+        if not term:
+            messages.error(request, "No BYUI term is available for export.")
+            return redirect("admin:workers_worker_changelist")
+
+        workers = self.get_queryset(request)
+        building_id = request.GET.get("building__id__exact")
+        if building_id:
+            workers = workers.filter(building_id=building_id)
+        status = request.GET.get("status__exact")
+        if status:
+            workers = workers.filter(status=status)
+
+        include_budget = has_director_access(request.user) or request.user.role in (
+            Role.MANAGER,
+            Role.SUPERVISOR,
+        )
+        budgets = filter_budgets(Budget.objects.all(), request.user) if include_budget else None
+        pdf_bytes = build_term_attendance_pdf(
+            workers,
+            term,
+            request.user,
+            budgets=budgets,
+        )
+        filename = f"attendance-{safe_filename(term.name)}.pdf"
+        return pdf_http_response(filename, pdf_bytes)
+
+    def export_worker_pdf_view(self, request, object_id):
+        worker = self.get_queryset(request).filter(pk=object_id).first()
+        if not worker:
+            messages.error(request, "Worker not found or not permitted.")
+            return redirect("admin:workers_worker_changelist")
+
+        term = _term_for_pdf_export(request)
+        if not term:
+            messages.error(request, "No BYUI term is available for export.")
+            return redirect("admin:workers_worker_change", object_id)
+
+        pdf_bytes = build_worker_pdf(worker, term, request.user)
+        filename = (
+            f"worker-{safe_filename(worker.name)}-{safe_filename(term.name)}.pdf"
+        )
+        return pdf_http_response(filename, pdf_bytes)
 
     def save_model(self, request, obj, form, change):
         if request.user.role == Role.SUPERVISOR:

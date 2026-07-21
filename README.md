@@ -10,7 +10,8 @@ Internal Django app for **student employee work attendance** at BYU-Idaho (not c
 | UI | django-unfold (Admin) |
 | Database | SQLite |
 | Time zone | `America/Denver` (Mountain Time) |
-| Planned | ReportLab (PDF export), budget dashboard, audit log |
+| PDF | ReportLab (term & worker reports from Admin) |
+| Planned | Budget dashboard, audit log |
 
 ## Apps
 
@@ -94,6 +95,15 @@ are reached or exceeded (records are not blocked).
 
 On list pages (Attendance, Buildings, Workers, Notes, Budgets): select rows → **Delete** appears above the bottom edge (requires delete permission).
 
+### PDF export
+
+From **Workers** in Admin:
+
+- **Export PDF** (top right on the list) — term attendance for all workers you can see, plus budget overview for your buildings.
+- **Export PDF** (on a worker’s detail page) — that worker’s term summary and attendance records.
+
+Reports use the **current BYUI term** by default. Append `?term=<id>` to the export URL to pick another semester.
+
 ## BYUI academic terms
 
 Terms follow the [BYU-Idaho academic calendar](https://www.byui.edu/academic-calendar/) (Fall, Winter, Spring, and Summer Session when applicable).
@@ -135,5 +145,4 @@ Set **role** to `director` and assign buildings on the **Buildings** screen as n
 ## Roadmap
 
 1. Budget dashboard (quota vs actual headcount)
-2. PDF export (ReportLab)
-3. Audit log and permission hardening
+2. Audit log and permission hardening
