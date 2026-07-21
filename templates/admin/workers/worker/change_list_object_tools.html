@@ -1,12 +1,13 @@
 {% load i18n %}
 
 {% block object-tools-items %}
-    {% if export_term_pdf_url %}
-        {% trans "Export PDF" as title %}
-        {% include "unfold/helpers/tab_action.html" with title=title link=export_term_pdf_url icon="picture_as_pdf" %}
-    {% endif %}
+    <div class="flex flex-row items-center gap-2">
+        {% if export_term_pdf_url %}
+            {% include "admin/helpers/export_pdf_button.html" with url=export_term_pdf_url %}
+        {% endif %}
 
-    {% if has_add_permission %}
-        {% include "unfold/helpers/add_link.html" %}
-    {% endif %}
+        {% if has_add_permission %}
+            {% include "unfold/helpers/add_link.html" %}
+        {% endif %}
+    </div>
 {% endblock %}

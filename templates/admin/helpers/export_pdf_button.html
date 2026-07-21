@@ -1,0 +1,12 @@
+{% load i18n %}
+
+{% if url %}
+    <a
+        href="{{ url }}"
+        class="admin-export-pdf-btn"
+        title="{% trans 'Download attendance report as PDF' %}"
+    >
+        <span class="material-symbols-outlined admin-export-pdf-btn__icon" aria-hidden="true">picture_as_pdf</span>
+        <span>{% trans "Export PDF" %}</span>
+    </a>
+{% endif %}

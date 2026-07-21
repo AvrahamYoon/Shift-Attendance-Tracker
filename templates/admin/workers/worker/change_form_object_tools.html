@@ -3,8 +3,12 @@
 
 {% block object-tools-items %}
     {% if export_worker_pdf_url %}
-        {% trans "Export PDF" as title %}
-        {% include "unfold/helpers/tab_action.html" with title=title link=export_worker_pdf_url icon="picture_as_pdf" %}
+        <li class="admin-export-pdf-tab">
+            <a href="{{ export_worker_pdf_url }}" class="admin-export-pdf-tab__link">
+                <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>
+                {% trans "Export PDF" %}
+            </a>
+        </li>
     {% endif %}
     {{ block.super }}
 {% endblock %}

@@ -252,6 +252,114 @@ body:not(.home-page):not(.login)::before {
     text-decoration: underline;
 }
 
+.admin-export-pdf-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 38px;
+    padding: 0.45rem 0.9rem;
+    border-radius: calc(var(--border-radius, 8px) + 2px);
+    border: 1px solid var(--color-primary-600);
+    background: linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--color-primary-500) 92%, #fff),
+        var(--color-primary-600)
+    );
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none;
+    box-shadow:
+        0 1px 2px rgb(15 23 42 / 0.08),
+        inset 0 1px 0 rgb(255 255 255 / 0.18);
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        transform 0.15s ease;
+}
+
+.admin-export-pdf-btn:hover {
+    border-color: var(--color-primary-700);
+    background: linear-gradient(
+        180deg,
+        var(--color-primary-600),
+        var(--color-primary-700)
+    );
+    color: #fff;
+    box-shadow: 0 4px 14px color-mix(in oklch, var(--color-primary-600) 35%, transparent);
+    transform: translateY(-1px);
+}
+
+.admin-export-pdf-btn__icon {
+    font-size: 1.1rem !important;
+    line-height: 1;
+}
+
+.dark .admin-export-pdf-btn {
+    border-color: var(--color-primary-500);
+    background: linear-gradient(
+        180deg,
+        var(--color-primary-600),
+        color-mix(in oklch, var(--color-primary-700) 85%, #000)
+    );
+    box-shadow:
+        0 1px 2px rgb(0 0 0 / 0.25),
+        inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.dark .admin-export-pdf-btn:hover {
+    border-color: var(--color-primary-400);
+    background: linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--color-primary-500) 90%, #fff),
+        var(--color-primary-600)
+    );
+}
+
+.admin-export-pdf-tab {
+    border: 1px solid var(--color-primary-600) !important;
+    background: linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--color-primary-500) 92%, #fff),
+        var(--color-primary-600)
+    ) !important;
+    color: #fff !important;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18);
+}
+
+.dark .admin-export-pdf-tab {
+    border-color: var(--color-primary-500) !important;
+    background: linear-gradient(
+        180deg,
+        var(--color-primary-600),
+        color-mix(in oklch, var(--color-primary-700) 85%, #000)
+    ) !important;
+}
+
+.admin-export-pdf-tab__link {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.85rem;
+    color: #fff !important;
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: opacity 0.15s ease;
+}
+
+.admin-export-pdf-tab__link:hover {
+    color: #fff !important;
+    opacity: 0.92;
+}
+
+.admin-export-pdf-tab .material-symbols-outlined {
+    font-size: 1.1rem;
+}
+
 .worker-over-limit-flag {
     display: inline-block;
     background: oklch(52% 0.22 25);
