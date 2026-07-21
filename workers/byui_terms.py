@@ -60,8 +60,9 @@ def sync_byui_terms(Term):
             old_term.delete()
 
     created = 0
+    inherited = 0
     for entry in BYUI_FULL_SEMESTERS:
-        _, was_created = Term.objects.update_or_create(
+        term, was_created = Term.objects.update_or_create(
             name=entry["name"],
             defaults={
                 "start_date": entry["start_date"],
@@ -70,4 +71,7 @@ def sync_byui_terms(Term):
         )
         if was_created:
             created += 1
-    return created
+    from workers.roster import ensure_all_term_rosters
+
+    inherited = ensure_all_term_rosters()
+    return created, inherited

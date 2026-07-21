@@ -19,10 +19,16 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
 from config.views import HomeView
+from workers.views import set_view_term_view
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
     path("accounts/", include("accounts.urls")),
     path("logout/", auth_views.LogoutView.as_view(next_page="home"), name="logout"),
+    path(
+        "admin/set-view-term/",
+        admin.site.admin_view(set_view_term_view),
+        name="workers_set_view_term",
+    ),
     path("admin/", admin.site.urls),
 ]

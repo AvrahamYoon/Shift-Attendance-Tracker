@@ -1,0 +1,27 @@
+{% load i18n %}
+
+<form method="post" action="{{ set_term_url }}" class="term-selector{% if compact %} term-selector--compact{% endif %}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next_url }}">
+
+    <label class="term-selector__label" for="view-term-select">
+        <span class="material-symbols-outlined term-selector__icon" aria-hidden="true">calendar_month</span>
+        <span class="term-selector__label-text">{% translate "Viewing term" %}</span>
+    </label>
+
+    <select id="view-term-select" name="term" class="term-selector__select" onchange="this.form.submit()">
+        {% for term in terms %}
+            <option value="{{ term.pk }}" {% if view_term and view_term.pk == term.pk %}selected{% endif %}>
+                {{ term.name }} ({{ term.start_date }} – {{ term.end_date }})
+            </option>
+        {% empty %}
+            <option value="">{% translate "No terms synced" %}</option>
+        {% endfor %}
+    </select>
+
+    {% if current_term and view_term and view_term.pk != current_term.pk %}
+        <button type="submit" name="term" value="" class="term-selector__reset" title="{% translate 'Reset to current term' %}">
+            {% translate "Current term" %}
+        </button>
+    {% endif %}
+</form>

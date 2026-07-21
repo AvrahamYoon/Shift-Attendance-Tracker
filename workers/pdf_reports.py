@@ -16,6 +16,7 @@ from workers.attendance import (
     summary_overall_status,
 )
 from workers.models import AttendanceRecord
+from workers.roster import enrollment_for, term_has_roster
 
 
 def safe_filename(part):
@@ -120,6 +121,14 @@ def _report_header(story, styles, title, term, generated_by):
     story.append(Spacer(1, 0.15 * inch))
 
 
+def _worker_building_name(worker, term):
+    if term and term_has_roster(term):
+        enrollment = enrollment_for(worker, term)
+        if enrollment:
+            return enrollment.building.name
+    return worker.building.name
+
+
 def build_term_attendance_pdf(workers, term, generated_by, budgets=None):
     buffer, doc = _doc_setup()
     styles = _styles()
@@ -130,12 +139,14 @@ def build_term_attendance_pdf(workers, term, generated_by, budgets=None):
     header = ["Building", "Worker", "I-Number", "Absences", "Tardy", "No show", "Status"]
     data = [header]
     worker_list = list(workers.select_related("building"))
-    worker_list.sort(key=lambda worker: (worker.building.name, worker.name))
+    worker_list.sort(
+        key=lambda worker: (_worker_building_name(worker, term), worker.name)
+    )
     for worker in worker_list:
         summary = attendance_summary_for_term(worker, term)
         data.append(
             [
-                worker.building.name,
+                _worker_building_name(worker, term),
                 worker.name,
                 worker.i_number,
                 _count_cell(summary["absence"]),
@@ -195,13 +206,24 @@ def build_worker_pdf(worker, term, generated_by):
     supervisor_name = (
         supervisor.get_full_name() or supervisor.username if supervisor else "—"
     )
+    building_name = _worker_building_name(worker, term)
+    enrollment = enrollment_for(worker, term) if term else None
+    term_status = (
+        enrollment.get_term_status_display()
+        if enrollment
+        else worker.get_term_status_display()
+    )
+    status_label = (
+        enrollment.get_status_display() if enrollment else worker.get_status_display()
+    )
+    shift = enrollment.shift if enrollment else worker.shift
     info_lines = [
         f"<b>Name:</b> {worker.name}",
         f"<b>I-Number:</b> {worker.i_number}",
-        f"<b>Building:</b> {worker.building.name}",
-        f"<b>Shift:</b> {worker.shift or '—'}",
-        f"<b>Status:</b> {worker.get_status_display()}",
-        f"<b>Term status:</b> {worker.get_term_status_display()}",
+        f"<b>Building:</b> {building_name}",
+        f"<b>Shift:</b> {shift or '—'}",
+        f"<b>Status:</b> {status_label}",
+        f"<b>Term status:</b> {term_status}",
         f"<b>Supervisor:</b> {supervisor_name}",
     ]
     for line in info_lines:

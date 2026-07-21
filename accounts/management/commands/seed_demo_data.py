@@ -4,7 +4,8 @@ from accounts.models import Role, User
 from buildings.models import Building
 from budget.models import Budget
 from workers.byui_terms import sync_byui_terms
-from workers.models import Term, Worker, WorkerStatus
+from workers.models import Term, Worker, WorkerStatus, WorkerTermEnrollment
+from workers.roster import ROSTER_START_TERM_NAME, sync_worker_enrollment, term_has_roster
 
 
 class Command(BaseCommand):
@@ -144,10 +145,20 @@ class Command(BaseCommand):
             },
         ]
         for data in workers:
-            Worker.objects.get_or_create(
+            worker, _ = Worker.objects.get_or_create(
                 i_number=data["i_number"],
                 defaults={**data, "status": WorkerStatus.ACTIVE},
             )
+            spring = Term.objects.filter(name=ROSTER_START_TERM_NAME).first()
+            if spring and term_has_roster(spring):
+                sync_worker_enrollment(
+                    worker,
+                    spring,
+                    building=worker.building,
+                    shift=worker.shift,
+                    term_status=worker.term_status,
+                    status=worker.status,
+                )
 
         for building, headcount in (
             (buildings["north"], 3),

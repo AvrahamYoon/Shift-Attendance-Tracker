@@ -9,7 +9,6 @@
 {% endblock %}
 
 {% block content %}
-    {% current_term_banner as current_term %}
     <div class="admin-welcome-banner">
         <div class="admin-welcome-banner__text">
             <h2>
@@ -19,19 +18,12 @@
                     {% translate "Welcome" %}
                 {% endif %}
             </h2>
-            {% if current_term %}
-                <p class="admin-welcome-banner__term">
-                    <span class="material-symbols-outlined text-base align-middle">calendar_month</span>
-                    {% blocktranslate with name=current_term.name start=current_term.start_date end=current_term.end_date %}
-                        Current term: {{ name }} ({{ start }} – {{ end }})
-                    {% endblocktranslate %}
-                </p>
-                <p class="admin-welcome-banner__hint">
-                    {% translate "Dates between semesters count toward the previous term." %}
-                </p>
-            {% else %}
-                <p>{% translate "No BYUI term covers today. Run sync_byui_terms." %}</p>
-            {% endif %}
+            <div class="admin-welcome-banner__term-row">
+                {% term_selector %}
+            </div>
+            <p class="admin-welcome-banner__hint">
+                {% translate "Attendance badges and PDF exports use the selected term. Recording attendance still follows each record's date." %}
+            </p>
         </div>
         <span class="material-symbols-outlined admin-welcome-banner__icon" aria-hidden="true">fact_check</span>
     </div>

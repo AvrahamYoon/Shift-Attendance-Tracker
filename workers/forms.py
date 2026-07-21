@@ -1,10 +1,13 @@
 from django import forms
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.utils import timezone
 
 from config.permissions import filter_buildings, filter_workers, user_can_access_building
 from workers.attendance import resolve_term_for_date
-from workers.models import AttendanceCategory, AttendanceRecord, Note, Worker
+from workers.models import AttendanceCategory, AttendanceRecord, Note, Worker, WorkerStatus
+from workers.roster import active_workers_queryset, enrollment_for, term_has_roster
+from workers.models import Term
 
 
 def _require_term_for_date(record_date):
@@ -53,10 +56,20 @@ class WorkerScopedModelForm(BuildingScopedModelForm):
         self.user = user
         super().__init__(*args, **kwargs)
         if user is not None and "worker" in self.fields:
-            self.fields["worker"].queryset = filter_workers(
-                Worker.objects.select_related("building").order_by("name"),
-                user,
-            )
+            term = Term.current()
+            if term_has_roster(term):
+                qs = active_workers_queryset(term).select_related("building").order_by(
+                    "name"
+                )
+            else:
+                qs = Worker.objects.filter(status=WorkerStatus.ACTIVE).select_related(
+                    "building"
+                ).order_by("name")
+            if self.instance.pk and self.instance.worker_id:
+                qs = Worker.objects.filter(
+                    Q(status=WorkerStatus.ACTIVE) | Q(pk=self.instance.worker_id)
+                ).select_related("building").order_by("name")
+            self.fields["worker"].queryset = filter_workers(qs, user)
             self.fields["worker"].widget.can_add_related = False
             self.fields["worker"].widget.can_change_related = False
             self.fields["worker"].widget.can_delete_related = False
@@ -87,6 +100,17 @@ class WorkerForm(BuildingScopedModelForm):
             "term_status",
             "status",
         )
+
+    def __init__(self, *args, user=None, view_term=None, **kwargs):
+        self.view_term = view_term
+        super().__init__(*args, user=user, **kwargs)
+        if self.instance.pk and view_term and term_has_roster(view_term):
+            enrollment = enrollment_for(self.instance, view_term)
+            if enrollment:
+                self.initial.setdefault("building", enrollment.building_id)
+                self.initial.setdefault("shift", enrollment.shift)
+                self.initial.setdefault("term_status", enrollment.term_status)
+                self.initial.setdefault("status", enrollment.status)
 
 
 class AttendanceRecordForm(WorkerScopedModelForm):
@@ -202,7 +226,9 @@ class NoteForm(BuildingScopedModelForm):
         elif self.initial.get("building"):
             building_id = self.initial.get("building")
 
-        qs = Worker.objects.select_related("building").order_by("name")
+        qs = Worker.objects.filter(status=WorkerStatus.ACTIVE).select_related(
+            "building"
+        ).order_by("name")
         if building_id:
             qs = qs.filter(building_id=building_id)
         elif self.parent_worker is not None:

@@ -33,9 +33,10 @@ class Budget(models.Model):
 
     @property
     def actual_headcount(self):
-        from workers.models import WorkerStatus
+        from workers.models import Term
+        from workers.roster import active_enrollment_count_for_building
 
-        return self.building.workers.filter(status=WorkerStatus.ACTIVE).count()
+        return active_enrollment_count_for_building(self.building, Term.current())
 
     @property
     def headcount_variance(self):

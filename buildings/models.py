@@ -23,9 +23,10 @@ class Building(models.Model):
 
     @property
     def active_headcount(self):
-        from workers.models import WorkerStatus
+        from workers.models import Term
+        from workers.roster import active_enrollment_count_for_building
 
-        return self.workers.filter(status=WorkerStatus.ACTIVE).count()
+        return active_enrollment_count_for_building(self, Term.current())
 
     @property
     def current_supervisor(self):

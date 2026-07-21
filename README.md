@@ -90,6 +90,16 @@ are reached or exceeded (records are not blocked).
 
 - Columns: **Absences**, **Tardy**, **No show** with color badges (green / orange / red by usage).
 - **Alert** column when any category is over the term limit.
+- **Status** filter defaults to **Active**; use **Inactive** or **All** to find past employees.
+- Use **Mark inactive** (bulk action) when someone leaves — do not delete unless you are a Director and need to remove bad data. Inactive workers keep all attendance history.
+
+### Term selector
+
+Use the **Viewing term** dropdown on the Admin home page or Workers list. Badges, worker summaries, and PDF exports follow the selected term. Recording attendance still uses each record's date.
+
+### Per-term rosters (from Spring 2026)
+
+Each BYUI semester has its own worker roster (`WorkerTermEnrollment`). **Fall 2025** and **Winter 2026** have no roster — the Workers list is empty for those terms. Rosters start at **Spring 2026**; when a new term is synced, active employees inherit from the previous term automatically.
 
 ### Deleting
 
@@ -102,7 +112,7 @@ From **Workers** in Admin:
 - **Export PDF** (top right on the list) — term attendance for all workers you can see, plus budget overview for your buildings.
 - **Export PDF** (on a worker’s detail page) — that worker’s term summary and attendance records.
 
-Reports use the **current BYUI term** by default. Append `?term=<id>` to the export URL to pick another semester.
+Reports use the **selected viewing term** from the Admin dropdown.
 
 ## BYUI academic terms
 

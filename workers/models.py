@@ -106,6 +106,53 @@ class Worker(models.Model):
         return self.building.current_supervisor
 
 
+class WorkerTermEnrollment(models.Model):
+    """Per-semester roster: building, shift, and active status for one worker."""
+
+    worker = models.ForeignKey(
+        Worker,
+        on_delete=models.CASCADE,
+        related_name="term_enrollments",
+    )
+    term = models.ForeignKey(
+        Term,
+        on_delete=models.CASCADE,
+        related_name="worker_enrollments",
+    )
+    building = models.ForeignKey(
+        "buildings.Building",
+        on_delete=models.PROTECT,
+        related_name="term_enrollments",
+    )
+    shift = models.CharField(max_length=50, blank=True)
+    term_status = models.CharField(
+        max_length=20,
+        choices=TermStatus.choices,
+        default=TermStatus.STAYING,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=WorkerStatus.choices,
+        default=WorkerStatus.ACTIVE,
+    )
+
+    class Meta:
+        ordering = ["term", "building", "worker__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["worker", "term"],
+                name="unique_worker_term_enrollment",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.worker} — {self.term.name}"
+
+    @property
+    def current_supervisor(self):
+        return self.building.current_supervisor if self.building_id else None
+
+
 class AttendanceCategory(models.TextChoices):
     ABSENCE = "absence", "Absence"
     NO_SHOW = "no_show", "No Show"

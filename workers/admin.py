@@ -37,7 +37,23 @@ from workers.attendance import (
     summary_overall_status,
 )
 from workers.forms import AbsenceRecordForm, AttendanceRecordForm, NoteForm, WorkerForm
-from workers.models import AttendanceCategory, AttendanceRecord, MonthlyScore, Note, Term, Worker
+from workers.models import (
+    AttendanceCategory,
+    AttendanceRecord,
+    MonthlyScore,
+    Note,
+    Term,
+    Worker,
+    WorkerStatus,
+    WorkerTermEnrollment,
+)
+from workers.term_context import get_view_term
+from workers.roster import (
+    ROSTER_START_TERM_NAME,
+    active_workers_queryset,
+    sync_worker_enrollment,
+    term_has_roster,
+)
 from workers.pdf_reports import (
     build_term_attendance_pdf,
     build_worker_pdf,
@@ -59,8 +75,12 @@ def _dispatch_limit_message(request, level, text):
         messages.warning(request, text)
 
 
-def _term_summary_for_worker(obj):
-    term = Term.current()
+def _admin_view_term(admin_instance):
+    return getattr(admin_instance, "_view_term", None) or Term.current()
+
+
+def _term_summary_for_worker(admin_instance, obj):
+    term = _admin_view_term(admin_instance)
     if not term:
         return None
     return attendance_summary_for_term(obj, term)
@@ -82,6 +102,60 @@ def _attendance_count_html(info):
 
 def _attendance_limit_cell_html(summary, category_value):
     return _attendance_count_html(summary[category_value])
+
+
+class WorkerStatusFilter(admin.SimpleListFilter):
+    title = "status"
+    parameter_name = "status"
+
+    def lookups(self, request, model_admin):
+        return (
+            (WorkerStatus.ACTIVE, "Active"),
+            (WorkerStatus.INACTIVE, "Inactive"),
+            ("all", "All"),
+        )
+
+    def queryset(self, request, queryset):
+        term = get_view_term(request)
+        if not term_has_roster(term):
+            return queryset.none()
+        value = self.value()
+        if value == "all":
+            return queryset
+        if value == WorkerStatus.INACTIVE:
+            return queryset.filter(
+                term_enrollments__term=term,
+                term_enrollments__status=WorkerStatus.INACTIVE,
+            )
+        return queryset.filter(
+            term_enrollments__term=term,
+            term_enrollments__status=WorkerStatus.ACTIVE,
+        )
+
+
+class EnrollmentBuildingFilter(admin.SimpleListFilter):
+    title = "building"
+    parameter_name = "building"
+
+    def lookups(self, request, model_admin):
+        from buildings.models import Building
+
+        buildings = filter_buildings(
+            Building.objects.order_by("name"),
+            request.user,
+        )
+        return [(building.pk, building.name) for building in buildings]
+
+    def queryset(self, request, queryset):
+        if not self.value():
+            return queryset
+        term = get_view_term(request)
+        if not term_has_roster(term):
+            return queryset.none()
+        return queryset.filter(
+            term_enrollments__term=term,
+            term_enrollments__building_id=self.value(),
+        )
 
 
 class AttendanceInlineMixin:
@@ -212,10 +286,7 @@ class MonthlyScoreInline(InlineAuditStampMixin, TabularInline):
 
 
 def _term_for_pdf_export(request):
-    term_id = request.GET.get("term")
-    if term_id:
-        return Term.objects.filter(pk=term_id).first()
-    return Term.current()
+    return get_view_term(request)
 
 
 def _export_pdf_url(name, request, *args):
@@ -229,6 +300,7 @@ def _export_pdf_url(name, request, *args):
 @admin.register(Worker)
 class WorkerModelAdmin(DeleteDockAdminMixin, WorkerAdmin):
     form = WorkerForm
+    list_before_template = "admin/workers/worker/list_before.html"
 
     class Media:
         css = {"all": ("css/custom.css",)}
@@ -246,7 +318,7 @@ class WorkerModelAdmin(DeleteDockAdminMixin, WorkerAdmin):
         "status",
         "current_supervisor_display",
     )
-    list_filter = ("building", "status", "term_status")
+    list_filter = (EnrollmentBuildingFilter, WorkerStatusFilter, "term_status")
     search_fields = ("name", "i_number", "phone")
     readonly_fields = ("term_attendance_summary",)
     inlines = [AbsenceRecordInline, TardyNoShowRecordInline, NoteInline, MonthlyScoreInline]
@@ -270,17 +342,57 @@ class WorkerModelAdmin(DeleteDockAdminMixin, WorkerAdmin):
             {
                 "fields": ("term_attendance_summary",),
                 "description": (
-                    "Automatic counts for the current BYUI semester. Limits: "
-                    "4 absence days, 4 tardies, 1 no show. "
+                    "Automatic counts for the selected BYUI semester (see term "
+                    "selector above). Limits: 4 absence days, 4 tardies, 1 no show. "
                     "Absences count by day (one per date)."
                 ),
             },
         ),
     )
 
+    def _enrollment_for(self, obj):
+        return getattr(self, "_enrollment_by_worker", {}).get(obj.pk)
+
+    def get_queryset(self, request):
+        self._view_term = get_view_term(request)
+        qs = super().get_queryset(request)
+        if not term_has_roster(self._view_term):
+            self._enrollment_by_worker = {}
+            return qs.none()
+        enrollments = WorkerTermEnrollment.objects.filter(
+            term=self._view_term,
+        ).select_related("building", "worker")
+        self._enrollment_by_worker = {
+            enrollment.worker_id: enrollment for enrollment in enrollments
+        }
+        if not self._enrollment_by_worker:
+            return qs.none()
+        return qs.filter(pk__in=self._enrollment_by_worker.keys())
+
+    @admin.display(description="Building")
+    def building(self, obj):
+        enrollment = self._enrollment_for(obj)
+        if enrollment:
+            return enrollment.building
+        return obj.building
+
+    @admin.display(description="Shift")
+    def shift(self, obj):
+        enrollment = self._enrollment_for(obj)
+        if enrollment:
+            return enrollment.shift or "—"
+        return obj.shift or "—"
+
+    @admin.display(description="Status")
+    def status(self, obj):
+        enrollment = self._enrollment_for(obj)
+        if enrollment:
+            return enrollment.get_status_display()
+        return obj.get_status_display()
+
     @admin.display(description="Alert")
     def limit_alert(self, obj):
-        term = Term.current()
+        term = _admin_view_term(self)
         if not term:
             return ""
         status = summary_overall_status(attendance_summary_for_term(obj, term))
@@ -292,30 +404,30 @@ class WorkerModelAdmin(DeleteDockAdminMixin, WorkerAdmin):
 
     @admin.display(description="Absences")
     def term_absences(self, obj):
-        summary = _term_summary_for_worker(obj)
+        summary = _term_summary_for_worker(self, obj)
         if summary is None:
             return "—"
         return _attendance_count_html(summary[AttendanceCategory.ABSENCE.value])
 
     @admin.display(description="Tardy")
     def term_tardies(self, obj):
-        summary = _term_summary_for_worker(obj)
+        summary = _term_summary_for_worker(self, obj)
         if summary is None:
             return "—"
         return _attendance_count_html(summary[AttendanceCategory.TARDY.value])
 
     @admin.display(description="No show")
     def term_no_shows(self, obj):
-        summary = _term_summary_for_worker(obj)
+        summary = _term_summary_for_worker(self, obj)
         if summary is None:
             return "—"
         return _attendance_count_html(summary[AttendanceCategory.NO_SHOW.value])
 
-    @admin.display(description="Current term totals")
+    @admin.display(description="Term totals")
     def term_attendance_summary(self, obj):
         if not obj.pk:
             return "—"
-        term = Term.current()
+        term = _admin_view_term(self)
         if not term:
             return mark_safe(
                 "<p>No BYUI semester covers today. "
@@ -376,7 +488,9 @@ class WorkerModelAdmin(DeleteDockAdminMixin, WorkerAdmin):
 
     @admin.display(description="Current supervisor")
     def current_supervisor_display(self, obj):
-        supervisor = obj.current_supervisor
+        enrollment = self._enrollment_for(obj)
+        building = enrollment.building if enrollment else obj.building
+        supervisor = building.current_supervisor if building else None
         return supervisor.get_full_name() or supervisor.username if supervisor else "—"
 
     def get_urls(self):
@@ -397,14 +511,22 @@ class WorkerModelAdmin(DeleteDockAdminMixin, WorkerAdmin):
         return custom_urls + urls
 
     def changelist_view(self, request, extra_context=None):
+        self._view_term = get_view_term(request)
         extra_context = extra_context or {}
         extra_context["export_term_pdf_url"] = _export_pdf_url(
             "admin:workers_worker_export_term_pdf",
             request,
         )
+        if self._view_term and not term_has_roster(self._view_term):
+            messages.info(
+                request,
+                f"No worker roster for {self._view_term.name}. "
+                f"Rosters begin with {ROSTER_START_TERM_NAME}.",
+            )
         return super().changelist_view(request, extra_context)
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
+        self._view_term = get_view_term(request)
         extra_context = extra_context or {}
         if object_id and self.get_queryset(request).filter(pk=object_id).exists():
             extra_context["export_worker_pdf_url"] = _export_pdf_url(
@@ -414,6 +536,43 @@ class WorkerModelAdmin(DeleteDockAdminMixin, WorkerAdmin):
             )
         return super().change_view(request, object_id, form_url, extra_context)
 
+    def has_delete_permission(self, request, obj=None):
+        if not has_director_access(request.user):
+            return False
+        return super().has_delete_permission(request, obj)
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions["mark_inactive"] = (
+            self.mark_inactive,
+            "mark_inactive",
+            "Mark inactive",
+        )
+        return actions
+
+    @admin.action(description="Mark inactive")
+    def mark_inactive(self, request, queryset):
+        term = get_view_term(request)
+        if not term_has_roster(term):
+            self.message_user(request, "No roster for the selected term.", messages.ERROR)
+            return
+        allowed = self.get_queryset(request).filter(
+            pk__in=queryset.values_list("pk", flat=True)
+        )
+        count = WorkerTermEnrollment.objects.filter(
+            worker__in=allowed,
+            term=term,
+        ).update(status=WorkerStatus.INACTIVE)
+        for worker in allowed:
+            worker.status = WorkerStatus.INACTIVE
+            worker.save(update_fields=["status"])
+        self.message_user(
+            request,
+            f"{count} worker(s) marked inactive for {term.name}. "
+            "Their attendance history is kept.",
+            messages.SUCCESS,
+        )
+
     def export_term_pdf_view(self, request):
         term = _term_for_pdf_export(request)
         if not term:
@@ -421,12 +580,23 @@ class WorkerModelAdmin(DeleteDockAdminMixin, WorkerAdmin):
             return redirect("admin:workers_worker_changelist")
 
         workers = self.get_queryset(request)
-        building_id = request.GET.get("building__id__exact")
+        building_id = request.GET.get("building")
         if building_id:
-            workers = workers.filter(building_id=building_id)
-        status = request.GET.get("status__exact")
-        if status:
-            workers = workers.filter(status=status)
+            workers = workers.filter(
+                term_enrollments__term=term,
+                term_enrollments__building_id=building_id,
+            )
+        status = request.GET.get("status")
+        if status == WorkerStatus.ACTIVE:
+            workers = workers.filter(
+                term_enrollments__term=term,
+                term_enrollments__status=WorkerStatus.ACTIVE,
+            )
+        elif status == WorkerStatus.INACTIVE:
+            workers = workers.filter(
+                term_enrollments__term=term,
+                term_enrollments__status=WorkerStatus.INACTIVE,
+            )
 
         include_budget = has_director_access(request.user) or request.user.role in (
             Role.MANAGER,
@@ -474,6 +644,16 @@ class WorkerModelAdmin(DeleteDockAdminMixin, WorkerAdmin):
                         "You do not have permission to edit this worker."
                     )
         super().save_model(request, obj, form, change)
+        term = get_view_term(request)
+        if term_has_roster(term):
+            sync_worker_enrollment(
+                obj,
+                term,
+                building=obj.building,
+                shift=obj.shift,
+                term_status=obj.term_status,
+                status=obj.status,
+            )
 
     def save_formset(self, request, form, formset, change):
         self._stamp_inline_audit_fields(request, formset)
@@ -513,7 +693,12 @@ class WorkerModelAdmin(DeleteDockAdminMixin, WorkerAdmin):
 
         class RequestWorkerForm(WorkerForm):
             def __init__(self, *args, **kw):
-                super().__init__(*args, user=user, **kw)
+                super().__init__(
+                    *args,
+                    user=user,
+                    view_term=get_view_term(request),
+                    **kw,
+                )
 
         kwargs["form"] = RequestWorkerForm
         return super().get_form(request, obj, **kwargs)
@@ -593,7 +778,9 @@ class AttendanceRecordAdmin(DeleteDockAdminMixin, AuditStampAdminMixin, WorkerRe
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "worker":
             kwargs["queryset"] = filter_workers(
-                Worker.objects.select_related("building").order_by("name"),
+                active_workers_queryset(Term.current())
+                .select_related("building")
+                .order_by("name"),
                 request.user,
             )
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
@@ -663,7 +850,9 @@ class NoteModelAdmin(DeleteDockAdminMixin, AuditStampAdminMixin, NoteAdmin):
             )
         if db_field.name == "worker":
             kwargs["queryset"] = filter_workers(
-                Worker.objects.select_related("building").order_by("name"),
+                active_workers_queryset(Term.current())
+                .select_related("building")
+                .order_by("name"),
                 request.user,
             )
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
